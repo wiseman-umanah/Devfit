@@ -26,5 +26,13 @@ Stubs (implemented in later stages)
 """
 
 from devfit.pipeline.analyzer import JDAnalyzer, ResumeAnalyzer
+from devfit.pipeline.classifier import FirstPassClassifier
+from devfit.pipeline.matcher import EvidenceMatcher, MatchedClaim
 
-__all__ = ["JDAnalyzer", "ResumeAnalyzer"]
+__all__ = [
+    "JDAnalyzer",
+    "ResumeAnalyzer",
+    "EvidenceMatcher",
+    "MatchedClaim",
+    "FirstPassClassifier",
+]

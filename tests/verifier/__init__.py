@@ -1,1 +1,1 @@
-"""Tests for the deterministic rule-based verifier layer."""
+"""Tests for the Independent Verifier sub-package."""

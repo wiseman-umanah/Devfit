@@ -11,11 +11,11 @@ The actual artefact content for those pointer(s):
 
 Your task:
 1. Check whether the cited artefact(s) genuinely support the proposed classification.
-2. If YES: output {"decision": "confirmed", "artefact_pointer": "<exact pointer>", "reason": "<one sentence>"}
+2. If YES: output {{"decision": "confirmed", "artefact_pointer": "<exact pointer>", "reason": "<one sentence>"}}
 3. If NO or if the artefact does not actually support the claim:
-   - Output {"decision": "downgraded", "new_classification": "unverifiable" | "contradicted", "reason": "<one sentence>"}
+   - Output {{"decision": "downgraded", "new_classification": "unverifiable" | "contradicted", "reason": "<one sentence>"}}
 4. If you cannot find the artefact pointer in the provided content:
-   - Output {"decision": "downgraded", "new_classification": "unverifiable", "reason": "Cited artefact not present in evidence bundle"}
+   - Output {{"decision": "downgraded", "new_classification": "unverifiable", "reason": "Cited artefact not present in evidence bundle"}}
 
 Rules:
 - You MUST cite the exact artefact pointer string or output "unverifiable".
