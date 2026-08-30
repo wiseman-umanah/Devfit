@@ -1,0 +1,16 @@
+Senior Go Engineer — Container Security & Infrastructure
+
+We are hiring a senior Go engineer to work on container security tooling.
+
+Requirements:
+- Expert Go developer with 5+ years of production Go experience
+- Deep experience with container runtimes, Docker, and Linux namespaces
+- Strong background in security tooling and vulnerability analysis
+- Experience building CLI tools and developer-facing infrastructure
+- Active open-source contributor with publicly visible Go projects
+- Excellent technical writing and documentation skills
+
+Nice to have:
+- Experience with Kubernetes internals
+- Background in Linux kernel security features (seccomp, capabilities, namespaces)
+- Prior experience in infrastructure or platform engineering roles

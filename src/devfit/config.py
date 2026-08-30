@@ -74,7 +74,7 @@ class Settings(BaseSettings):
     )
     devfit_env: Literal["development", "production"] = "development"
     github_api_base: str = "https://api.github.com"
-    groq_model: str = "llama-3.3-70b-versatile"
+    groq_model: str = "openai/gpt-oss-120b"
 
 
 @lru_cache(maxsize=1)

@@ -1,0 +1,479 @@
+[
+  {
+    "claim_id": "c01-001",
+    "text": "Expert-level C programming",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "Linux kernel is overwhelmingly C; language_stats will confirm"
+  },
+  {
+    "claim_id": "c01-002",
+    "text": "15+ years of experience building production systems",
+    "category": "experience_duration",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "GitHub account created 2011; linux repo history predates GitHub entirely \u2014 account age alone confirms 10+ yrs; full claim is unverifiable from GitHub alone but partial evidence exists"
+  },
+  {
+    "claim_id": "c01-003",
+    "text": "Deep experience with Linux kernel development",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "linux/torvalds repo is the canonical Linux kernel repo"
+  },
+  {
+    "claim_id": "c01-004",
+    "text": "Proven track record maintaining large open-source codebases",
+    "category": "role_scope",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "linux repo with thousands of stars and decades of history"
+  },
+  {
+    "claim_id": "c01-005",
+    "text": "Experience with Git and patch-based development workflows",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "torvalds/git \u2014 Linus authored Git itself"
+  },
+  {
+    "claim_id": "c01-006",
+    "text": "Ability to lead and coordinate global distributed engineering communities",
+    "category": "soft_skill",
+    "source": "jd_requirement",
+    "correct_classification": "unverifiable",
+    "labeled_by": "builder",
+    "notes": "Soft skill \u2014 cannot be confirmed from GitHub artefacts"
+  },
+  {
+    "claim_id": "c01-007",
+    "text": "Excellent written communication skills for technical documentation",
+    "category": "soft_skill",
+    "source": "jd_requirement",
+    "correct_classification": "unverifiable",
+    "labeled_by": "builder",
+    "notes": "Soft skill \u2014 cannot be confirmed from GitHub artefacts"
+  },
+  {
+    "claim_id": "c02-001",
+    "text": "Expert Python developer",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "Python repos and language stats clearly confirm; cpython is primary language"
+  },
+  {
+    "claim_id": "c02-002",
+    "text": "10+ years of professional experience",
+    "category": "experience_duration",
+    "source": "jd_requirement",
+    "correct_classification": "unverifiable",
+    "labeled_by": "builder",
+    "notes": "GitHub account age may not reflect total career; gvanrossum created Python in 1991 \u2014 this predates GitHub. Account age alone cannot confirm 10+ yrs definitively."
+  },
+  {
+    "claim_id": "c02-003",
+    "text": "Deep understanding of the Python language design and internals",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "cpython contributions directly visible; PEP authorship referenced in READMEs"
+  },
+  {
+    "claim_id": "c02-004",
+    "text": "Experience contributing to or maintaining open-source Python projects",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "cpython repo fork and related tooling repos confirm this"
+  },
+  {
+    "claim_id": "c02-005",
+    "text": "Strong written communication and community engagement skills",
+    "category": "soft_skill",
+    "source": "jd_requirement",
+    "correct_classification": "unverifiable",
+    "labeled_by": "builder",
+    "notes": "Soft skill \u2014 GitHub cannot confirm"
+  },
+  {
+    "claim_id": "c03-001",
+    "text": "Expert JavaScript and Node.js developer",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "Hundreds of JS/TS npm packages in public repos; language stats will show JavaScript dominance"
+  },
+  {
+    "claim_id": "c03-002",
+    "text": "Proven track record building and maintaining open-source npm packages",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "1000+ public repos, majority are npm packages with stars confirming adoption"
+  },
+  {
+    "claim_id": "c03-003",
+    "text": "Experience with CLI tooling, build systems, and developer utilities",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "Repos like chalk, ora, execa, and others directly confirm CLI tooling experience"
+  },
+  {
+    "claim_id": "c03-004",
+    "text": "5+ years of experience shipping production JavaScript software",
+    "category": "experience_duration",
+    "source": "jd_requirement",
+    "correct_classification": "unverifiable",
+    "labeled_by": "builder",
+    "notes": "Account age may support this but 'professional experience' cannot be confirmed from public GitHub alone"
+  },
+  {
+    "claim_id": "c03-005",
+    "text": "Active open-source contributor with a substantial public portfolio",
+    "category": "role_scope",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "Contribution graph and repo count confirm extreme open-source activity"
+  },
+  {
+    "claim_id": "c04-001",
+    "text": "Expert Python developer",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "fastapi, sqlmodel, typer repos \u2014 Python dominates language stats"
+  },
+  {
+    "claim_id": "c04-002",
+    "text": "Deep expertise in FastAPI, Pydantic, and modern async Python",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "tiangolo/fastapi is the canonical FastAPI repo \u2014 creator of the framework"
+  },
+  {
+    "claim_id": "c04-003",
+    "text": "Experience building and open-sourcing production Python libraries",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "fastapi (75k+ stars), sqlmodel, typer all confirm this"
+  },
+  {
+    "claim_id": "c04-004",
+    "text": "5+ years of backend engineering experience",
+    "category": "experience_duration",
+    "source": "jd_requirement",
+    "correct_classification": "unverifiable",
+    "labeled_by": "builder",
+    "notes": "Account age may support but professional context cannot be confirmed from GitHub"
+  },
+  {
+    "claim_id": "c04-005",
+    "text": "Proficiency with Docker and containerised deployment workflows",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "full-stack-fastapi-template and similar repos contain Dockerfiles confirming this"
+  },
+  {
+    "claim_id": "c05-001",
+    "text": "Expert Python developer with 5+ years of experience",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "contradicted",
+    "labeled_by": "builder",
+    "notes": "antirez's repos are overwhelmingly C (redis, jimtcl, kilo); Python is minimal or absent in language stats"
+  },
+  {
+    "claim_id": "c05-002",
+    "text": "Strong experience with data pipelines and Redis",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "antirez/redis \u2014 Redis creator. Redis expertise is definitively verified."
+  },
+  {
+    "claim_id": "c05-003",
+    "text": "Proficiency with Python async frameworks and high-performance networking",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "contradicted",
+    "labeled_by": "builder",
+    "notes": "Language stats will show C dominance; no Python async framework repos present"
+  },
+  {
+    "claim_id": "c05-004",
+    "text": "Experience designing and shipping open-source Python libraries",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "contradicted",
+    "labeled_by": "builder",
+    "notes": "Repos are C-based (redis, etc.) \u2014 no Python library output visible"
+  },
+  {
+    "claim_id": "c05-005",
+    "text": "Familiarity with cloud infrastructure and distributed systems",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "unverifiable",
+    "labeled_by": "builder",
+    "notes": "Cloud infra context not determinable from public repos alone"
+  },
+  {
+    "claim_id": "c06-001",
+    "text": "Expert Go developer with 5+ years of production Go experience",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "tj has substantial Go repos; Go appears prominently in language stats"
+  },
+  {
+    "claim_id": "c06-002",
+    "text": "Strong experience building microservices and CLI tooling",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "apex, up, and other CLI/microservice repos confirm this directly"
+  },
+  {
+    "claim_id": "c06-003",
+    "text": "Familiarity with Node.js or JavaScript for polyglot team context",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "tj has significant Node.js history (express, mocha, etc.); JS present in language stats"
+  },
+  {
+    "claim_id": "c06-004",
+    "text": "Strong team collaboration and asynchronous communication skills",
+    "category": "soft_skill",
+    "source": "jd_requirement",
+    "correct_classification": "unverifiable",
+    "labeled_by": "builder",
+    "notes": "Soft skill \u2014 GitHub cannot confirm collaboration quality"
+  },
+  {
+    "claim_id": "c06-005",
+    "text": "Prior startup or fast-paced product engineering experience",
+    "category": "experience_duration",
+    "source": "jd_requirement",
+    "correct_classification": "unverifiable",
+    "labeled_by": "builder",
+    "notes": "Employment context not determinable from GitHub public data"
+  },
+  {
+    "claim_id": "c07-001",
+    "text": "Expert Python developer with 7+ years of professional Python experience",
+    "category": "experience_duration",
+    "source": "jd_requirement",
+    "correct_classification": "contradicted",
+    "labeled_by": "builder",
+    "notes": "ENGINEERED CASE: account created 2024 (< 1 yr old). Date arithmetic rule must fire and contradict this claim."
+  },
+  {
+    "claim_id": "c07-002",
+    "text": "Strong experience with Django or FastAPI in production environments",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "unverifiable",
+    "labeled_by": "builder",
+    "notes": "New account \u2014 insufficient artefacts to verify or contradict framework experience"
+  },
+  {
+    "claim_id": "c07-003",
+    "text": "5+ years of experience with PostgreSQL and database performance tuning",
+    "category": "experience_duration",
+    "source": "jd_requirement",
+    "correct_classification": "contradicted",
+    "labeled_by": "builder",
+    "notes": "ENGINEERED CASE: account age directly contradicts 5+ year duration claim"
+  },
+  {
+    "claim_id": "c07-004",
+    "text": "Proven record of leading backend architecture decisions",
+    "category": "soft_skill",
+    "source": "jd_requirement",
+    "correct_classification": "unverifiable",
+    "labeled_by": "builder",
+    "notes": "Leadership claim \u2014 unverifiable from GitHub regardless of account age"
+  },
+  {
+    "claim_id": "c07-005",
+    "text": "Strong ability to mentor junior engineers and lead technical discussions",
+    "category": "soft_skill",
+    "source": "jd_requirement",
+    "correct_classification": "unverifiable",
+    "labeled_by": "builder",
+    "notes": "Soft skill \u2014 unverifiable from GitHub"
+  },
+  {
+    "claim_id": "c08-001",
+    "text": "Expert Vue.js developer with 5+ years of frontend engineering experience",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "vuejs/vue and vuejs/core \u2014 yyx990803 (Evan You) is the creator of Vue.js"
+  },
+  {
+    "claim_id": "c08-002",
+    "text": "Deep knowledge of JavaScript framework internals and reactivity systems",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "Vue reactivity system is a canonical example; repo READMEs confirm deep framework work"
+  },
+  {
+    "claim_id": "c08-003",
+    "text": "Experience building and maintaining large open-source frontend projects",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "vuejs/vue (200k+ stars), vuejs/core both confirm maintenance of very large OSS projects"
+  },
+  {
+    "claim_id": "c08-004",
+    "text": "Active open-source contributor with a public track record",
+    "category": "role_scope",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "Contribution graph and repo star counts confirm high-activity OSS presence"
+  },
+  {
+    "claim_id": "c08-005",
+    "text": "Strong collaboration and community engagement skills",
+    "category": "soft_skill",
+    "source": "jd_requirement",
+    "correct_classification": "unverifiable",
+    "labeled_by": "builder",
+    "notes": "Soft skill \u2014 GitHub cannot confirm"
+  },
+  {
+    "claim_id": "c09-001",
+    "text": "Expert Python developer with 5+ years of production Python experience",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "requests, httpbin, and many other Python repos confirm expert Python; account age confirms 5+ yrs"
+  },
+  {
+    "claim_id": "c09-002",
+    "text": "Strong experience building and maintaining widely-used open-source Python libraries",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "requests (50k+ stars) is one of the most downloaded Python packages in history"
+  },
+  {
+    "claim_id": "c09-003",
+    "text": "Proficiency with HTTP protocol internals, REST, and API design patterns",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "requests and httpbin repos directly confirm HTTP and REST expertise"
+  },
+  {
+    "claim_id": "c09-004",
+    "text": "Experience with packaging, PyPI distribution, and Python ecosystem tooling",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "Multiple widely-distributed PyPI packages confirm packaging experience"
+  },
+  {
+    "claim_id": "c09-005",
+    "text": "Excellent technical writing and developer documentation skills",
+    "category": "soft_skill",
+    "source": "jd_requirement",
+    "correct_classification": "unverifiable",
+    "labeled_by": "builder",
+    "notes": "Writing quality cannot be confirmed from GitHub artefacts alone"
+  },
+  {
+    "claim_id": "c10-001",
+    "text": "Expert Go developer with 5+ years of production Go experience",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "Go dominates language stats; container-related Go repos confirm production Go experience"
+  },
+  {
+    "claim_id": "c10-002",
+    "text": "Deep experience with container runtimes, Docker, and Linux namespaces",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "jessfraz/bane, nerdctl contributions, and container-focused repos confirm this directly"
+  },
+  {
+    "claim_id": "c10-003",
+    "text": "Strong background in security tooling and vulnerability analysis",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "bane (AppArmor profiles), seccomp-related repos, and security-focused READMEs confirm security work"
+  },
+  {
+    "claim_id": "c10-004",
+    "text": "Experience building CLI tools and developer-facing infrastructure",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "Multiple Go CLI tools in public repos confirm this"
+  },
+  {
+    "claim_id": "c10-005",
+    "text": "Background in Linux kernel security features (seccomp, capabilities, namespaces)",
+    "category": "technical_skill",
+    "source": "jd_requirement",
+    "correct_classification": "verified",
+    "labeled_by": "builder",
+    "notes": "seccomp and namespace usage visible in bane and related repos"
+  },
+  {
+    "claim_id": "c10-006",
+    "text": "Prior experience in infrastructure or platform engineering roles",
+    "category": "experience_duration",
+    "source": "jd_requirement",
+    "correct_classification": "unverifiable",
+    "labeled_by": "builder",
+    "notes": "Employment history not determinable from GitHub public artefacts"
+  }
+]

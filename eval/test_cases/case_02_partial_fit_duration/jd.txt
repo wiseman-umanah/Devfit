@@ -1,0 +1,16 @@
+Senior Python Engineer — Language Tooling & Developer Experience
+
+We are hiring a senior Python engineer to work on our developer tooling platform.
+
+Requirements:
+- Expert Python developer with 10+ years of professional experience
+- Deep understanding of the Python language design and internals
+- Experience contributing to or maintaining open-source Python projects
+- Familiarity with CPython internals and the Python standard library
+- Strong written communication and community engagement skills
+- Experience designing and documenting public APIs
+
+Nice to have:
+- Experience as a language maintainer or core contributor
+- Background in type systems or static analysis tooling
+- Excellent collaboration skills with global distributed teams

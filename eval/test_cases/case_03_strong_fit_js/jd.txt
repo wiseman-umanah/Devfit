@@ -1,0 +1,16 @@
+Senior Frontend Engineer — Node.js Tooling & Open Source
+
+We are looking for an exceptional frontend and Node.js tooling engineer.
+
+Requirements:
+- Expert JavaScript and Node.js developer
+- Proven track record building and maintaining open-source npm packages
+- Experience with CLI tooling, build systems, and developer utilities
+- Strong understanding of modern JavaScript ecosystem best practices
+- Active open-source contributor with a substantial public portfolio
+- 5+ years of experience shipping production JavaScript software
+
+Nice to have:
+- Experience with TypeScript
+- Familiarity with cross-platform CLI design
+- Background in documentation-driven development

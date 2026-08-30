@@ -1,0 +1,14 @@
+NOTE — ENGINEERED CASE:
+The GitHub username in this case is synthetic. For evaluation purposes, replace
+"new-dev-2024" with a real GitHub account that was created in late 2023 or 2024
+(< 18 months old at time of evaluation run) and has some Python repos but no
+evidence of 7+ years of professional experience.
+
+Suggested real accounts to use (verify account age before running):
+- Any account visibly created 2023–2024 with Python activity and < 5 repos.
+- Alternatively, create a fresh test account specifically for this eval case.
+
+The key signal the rule-based verifier must catch:
+  Claim: "7+ years professional Python experience"
+  Evidence: GitHub account created 2024-xx-xx (< 1 year old)
+  Expected verdict: CONTRADICTED (date arithmetic rule fires)
