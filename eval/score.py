@@ -1,4 +1,4 @@
-"""
+r"""
 Evaluation scoring script for DevFit vs Baseline.
 
 Computes three metrics (reported separately, never blended):
@@ -19,9 +19,9 @@ Usage
 -----
 .. code-block:: bash
 
-    uv run python eval/score.py \\
-        --ground-truth eval/ground_truth.json \\
-        --devfit-outputs eval/devfit_outputs/ \\
+    uv run python eval/score.py \
+        --ground-truth eval/ground_truth.json \
+        --devfit-outputs eval/devfit_outputs/ \
         --baseline-outputs eval/baseline_outputs/
 """
 

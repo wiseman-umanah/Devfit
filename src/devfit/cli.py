@@ -30,6 +30,7 @@ import asyncio
 import logging
 import os
 import sys
+import uuid
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -141,11 +142,17 @@ async def _run_pipeline(
     include_unverifiable: bool,
 ) -> None:
     """
-    Async pipeline runner — wires together all stages end-to-end.
+    Full end-to-end pipeline runner.
 
-    This function will be fleshed out incrementally as stages are implemented
-    (see steps.txt Stages 3–8).  Currently it raises ``NotImplementedError``
-    to clearly signal that the pipeline is not yet complete.
+    Stages in order
+    ---------------
+    3 → GitHub Collector (ArtefactBundle)
+    4 → JD Analyzer + optional Resume Analyzer (list[Claim])
+    5 → Evidence Matcher + First-Pass Classifier (draft Verdicts)
+    6 → Independent Verifier (final Verdicts + VerifierDecisions)
+    7 → Fit Report + CV + Evidence Appendix generators
+    8 → Human Checkpoint (approve / edit / abort)
+    8 → Write final output files
 
     Parameters
     ----------
@@ -154,26 +161,160 @@ async def _run_pipeline(
     github_username : str
         Candidate's public GitHub username.
     resume_text : str | None
-        Optional resume text.
+        Optional resume text for additional claim cross-checking.
     output_dir : Path
-        Directory where output files will be written after human approval.
+        Parent directory; a ``<run_id>/`` sub-directory is created here.
     include_unverifiable : bool
-        Whether to include unverifiable claims in the CV output.
-
-    Raises
-    ------
-    NotImplementedError
-        Until the pipeline stages are wired in (see steps.txt).
+        When ``True``, unverifiable claims are included in the CV with a
+        visible ``[CANNOT BE CONFIRMED FROM GITHUB]`` marker.
     """
-    # TODO(stage-3): wire in GitHubCollector
-    # TODO(stage-4): wire in JDAnalyzer
-    # TODO(stage-5): wire in EvidenceMatcher + FirstPassClassifier
-    # TODO(stage-6): wire in IndependentVerifier
-    # TODO(stage-7): wire in FitReportGenerator + CVGenerator
-    # TODO(stage-8): wire in HumanCheckpoint
-    raise NotImplementedError(
-        "Pipeline not yet implemented.  Follow steps.txt build order."
+    from devfit.checkpoint import HumanCheckpoint
+    from devfit.github.client import GitHubClient, GitHubRateLimitError
+    from devfit.github.collector import GitHubCollector
+    from devfit.output import (
+        CVGenerator,
+        EvidenceAppendix,
+        FitReportGenerator,
+        TrajectoryLogger,
     )
+    from devfit.pipeline import (
+        EvidenceMatcher,
+        FirstPassClassifier,
+        JDAnalyzer,
+        ResumeAnalyzer,
+    )
+    from devfit.verifier import IndependentVerifier
+
+    run_id = uuid.uuid4().hex[:8]
+    run_dir = output_dir / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    logger.info("Run ID: %s  →  %s", run_id, run_dir)
+
+    with TrajectoryLogger(run_dir) as tlog:
+        tlog.log_event(
+            "pipeline_start",
+            {
+                "run_id": run_id,
+                "github_username": github_username,
+                "has_resume": resume_text is not None,
+                "include_unverifiable": include_unverifiable,
+            },
+        )
+
+        # ── Stage 3: GitHub Collector ────────────────────────────────────────
+        logger.info("[3/8] Collecting GitHub artefacts for '%s'", github_username)
+        try:
+            async with GitHubClient() as client:
+                bundle = await GitHubCollector(client).collect(github_username)
+        except GitHubRateLimitError as exc:
+            logger.error("GitHub rate limit hit: %s", exc)
+            sys.exit(1)
+        tlog.log_event(
+            "github_collection",
+            {"username": github_username, "artefact_count": len(bundle)},
+        )
+
+        # ── Stage 4: JD + Resume Analyzers ──────────────────────────────────
+        logger.info("[4/8] Analyzing JD (%d chars)", len(jd_text))
+        jd_claims = await JDAnalyzer().analyze(jd_text)
+        tlog.log_event("jd_analysis", {"claim_count": len(jd_claims)})
+
+        resume_claims = []
+        if resume_text:
+            logger.info("[4/8] Analyzing resume (%d chars)", len(resume_text))
+            resume_claims = await ResumeAnalyzer().analyze(resume_text)
+            tlog.log_event("resume_analysis", {"claim_count": len(resume_claims)})
+
+        all_claims = jd_claims + resume_claims
+        claims_by_id = {c.id: c.text for c in all_claims}
+
+        # ── Stage 5: Evidence Matcher + First-Pass Classifier ────────────────
+        logger.info(
+            "[5/8] Matching evidence and classifying %d claims", len(all_claims)
+        )
+        matcher = EvidenceMatcher()
+        matched = matcher.match(all_claims, bundle)
+        skip_verdicts = matcher.build_unverifiable_verdicts(matched)
+        tlog.log_event(
+            "evidence_matching",
+            {
+                "total_claims": len(all_claims),
+                "skipped": len(skip_verdicts),
+                "to_classify": sum(1 for mc in matched if not mc.skipped),
+            },
+        )
+
+        draft_verdicts = await FirstPassClassifier().classify(matched)
+        tlog.log_event(
+            "first_pass_classification",
+            {"draft_verdict_count": len(draft_verdicts)},
+        )
+
+        # ── Stage 6: Independent Verifier ────────────────────────────────────
+        logger.info(
+            "[6/8] Running independent verifier on %d drafts", len(draft_verdicts)
+        )
+        active_matched = [mc for mc in matched if not mc.skipped]
+        final_verdicts, decisions = await IndependentVerifier().verify_all(
+            draft_verdicts, active_matched
+        )
+        all_verdicts = skip_verdicts + final_verdicts
+        tlog.log_verifier_decisions(decisions)
+        tlog.log_event(
+            "verification_complete",
+            {
+                "total_verdicts": len(all_verdicts),
+                "verified": sum(
+                    1 for v in all_verdicts if v.classification == "verified"
+                ),
+                "contradicted": sum(
+                    1 for v in all_verdicts if v.classification == "contradicted"
+                ),
+                "unverifiable": sum(
+                    1 for v in all_verdicts if v.classification == "unverifiable"
+                ),
+                "downgraded_count": sum(1 for d in decisions if d.was_downgraded),
+            },
+        )
+
+        # ── Stage 7: Report + CV + Appendix generators ───────────────────────
+        logger.info("[7/8] Generating report, CV, and evidence appendix")
+        jd_title = jd_text.splitlines()[0][:80] if jd_text else "Role"
+
+        report_md = FitReportGenerator().generate(
+            all_verdicts, claims_by_id, github_username, jd_title
+        )
+        cv_md, _ = CVGenerator().generate(
+            all_verdicts, claims_by_id, github_username, include_unverifiable
+        )
+        appendix_md = EvidenceAppendix().generate(all_verdicts, claims_by_id)
+
+        # ── Stage 8: Human Checkpoint ─────────────────────────────────────────
+        logger.info("[8/8] Human checkpoint — presenting draft for review")
+        result = HumanCheckpoint(tlog).run(report_md, cv_md)
+
+        if result is None:
+            logger.info("Aborted at human checkpoint.  No output files written.")
+            sys.exit(0)
+
+        final_report_md, final_cv_md = result
+
+        # ── Write final output files ──────────────────────────────────────────
+        (run_dir / "fit_report.md").write_text(final_report_md, encoding="utf-8")
+        (run_dir / "cv.md").write_text(final_cv_md, encoding="utf-8")
+        (run_dir / "evidence_appendix.md").write_text(appendix_md, encoding="utf-8")
+
+        tlog.log_event(
+            "output_written",
+            {
+                "run_dir": str(run_dir),
+                "files": ["fit_report.md", "cv.md", "evidence_appendix.md",
+                          "trajectory_log.jsonl"],
+            },
+        )
+
+    logger.info("Done. Output written to: %s", run_dir)
+    print(f"\nOutput written to: {run_dir}")
 
 
 def _main(dev_mode: bool = False) -> None:
@@ -211,9 +352,6 @@ def _main(dev_mode: bool = False) -> None:
                 include_unverifiable=args.include_unverifiable,
             )
         )
-    except NotImplementedError as exc:
-        logger.error("Pipeline stub: %s", exc)
-        sys.exit(1)
     except KeyboardInterrupt:
         logger.info("Aborted by user.")
         sys.exit(130)

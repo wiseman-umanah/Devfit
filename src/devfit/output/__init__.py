@@ -1,18 +1,34 @@
 """
-Output sub-package: fit-report, CV, and evidence-appendix generators.
+Output sub-package: fit-report, CV, evidence-appendix, and trajectory logger.
 
-Modules
--------
-report
-    ``FitReportGenerator`` — produces a Markdown fit report from ``Verdict``
-    objects.  Only ``verified`` and ``contradicted`` verdicts are scored.
-    ``unverifiable`` verdicts appear in a separate section and are never
-    included in the score.
-cv
-    ``CVGenerator`` — produces an ATS-structured Markdown CV.  Every claim
-    line must trace back to an ``Artefact`` pointer.  Unverifiable claims
-    may only be included at explicit user request and are marked accordingly.
-appendix
-    ``EvidenceAppendix`` — renders the full list of artefact pointers with
-    their ``extracted_fact`` summaries for every claim in the run.
+Public API
+----------
+``FitReportGenerator``
+    Produces a Markdown fit report.  Score built only from verified/contradicted.
+    Unverifiable claims listed separately, never scored.
+
+``CVGenerator``
+    Produces an ATS-structured Markdown CV.  Every verified claim line carries
+    a ``[source: <pointer>]`` tag.  Unverifiable claims only on explicit request,
+    always marked ``[CANNOT BE CONFIRMED FROM GITHUB]``.
+
+``EvidenceAppendix``
+    Renders the full artefact pointer index for every claim in the run.
+
+``TrajectoryLogger``
+    Append-only JSONL logger for all pipeline events and verifier decisions.
 """
+
+from devfit.output.appendix import EvidenceAppendix
+from devfit.output.cv import CVGenerator, CVLine
+from devfit.output.report import FitReportGenerator, FitScore
+from devfit.output.trajectory import TrajectoryLogger
+
+__all__ = [
+    "FitReportGenerator",
+    "FitScore",
+    "CVGenerator",
+    "CVLine",
+    "EvidenceAppendix",
+    "TrajectoryLogger",
+]
