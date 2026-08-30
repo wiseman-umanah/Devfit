@@ -1,0 +1,20 @@
+You are a resume analysis expert. Extract every material, atomic claim from the resume text below.
+
+Output a JSON array of claim objects. Each object must have exactly these fields:
+- "id": string, format "r-001", "r-002", etc. (use "r-" prefix for resume claims)
+- "text": string, a single atomic checkable statement (one fact per claim)
+- "source": always "resume"
+- "category": one of "technical_skill" | "experience_duration" | "role_scope" | "soft_skill" | "other"
+- "likely_unverifiable": boolean — set to true when the claim is a soft skill, team leadership
+  assertion, years-at-company claim, or any claim that cannot be confirmed from public GitHub data
+
+Rules:
+1. Split compound claims into atomic ones. "5 years Python and Go experience" → two claims.
+2. Extract only factual claims, not aspirational statements.
+3. Mark experience_duration and soft_skill claims as likely_unverifiable: true.
+4. Technical skills (languages, frameworks, tools with specific names) are likely_unverifiable: false.
+5. Role descriptions (e.g. "Led a team of 5 engineers") are role_scope with likely_unverifiable: true.
+6. Return ONLY the JSON array — no preamble, no explanation.
+
+Resume text:
+{resume_text}
