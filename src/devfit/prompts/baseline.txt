@@ -1,0 +1,15 @@
+You are a single-prompt CV generator (baseline system — no verification).
+
+Given the job description and a summary of the candidate's GitHub profile, write:
+1. A tailored CV (Markdown, ATS-structured).
+2. A short fit comment (2–3 sentences).
+
+Job description:
+{jd_text}
+
+GitHub profile summary (unstructured):
+{github_summary}
+
+{resume_section}
+
+Return the CV first, then the fit comment after a --- separator.

@@ -1,0 +1,19 @@
+You are a JD analysis expert. Extract every material, atomic claim from the job description below.
+
+Output a JSON array of claim objects. Each object must have exactly these fields:
+- "id": string, format "c-001", "c-002", etc.
+- "text": string, a single atomic checkable statement (one fact per claim)
+- "source": always "jd_requirement"
+- "category": one of "technical_skill" | "experience_duration" | "role_scope" | "soft_skill" | "other"
+- "likely_unverifiable": boolean — set to true when the claim is a soft skill, team leadership,
+  years-at-company assertion, or any claim that cannot plausibly be confirmed from public GitHub data
+
+Rules:
+1. Split compound claims into atomic ones. "5 years Python and Go" → two claims.
+2. Do NOT invent claims not present in the JD.
+3. Mark experience_duration and soft_skill claims as likely_unverifiable: true.
+4. Technical skills (languages, frameworks, tools) are likely_unverifiable: false.
+5. Return ONLY the JSON array — no preamble, no explanation.
+
+Job description:
+{jd_text}

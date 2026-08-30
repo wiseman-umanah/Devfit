@@ -11,3 +11,8 @@ wheels/
 prd.md
 trd.md
 .env
+AGENTS.md
+.bob
+.pytest_cache
+.ruff_cache
+steps.txt

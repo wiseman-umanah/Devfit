@@ -1,16 +1,115 @@
 [project]
 name = "devfit"
 version = "0.1.0"
-description = "Add your description here"
+description = "Evidence-grounded CV and fit-report generator that verifies every claim against public GitHub artefacts."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.141.1",
     "groq>=1.7.0",
+    "httpx>=0.28.1",
     "jinja2>=3.1.6",
     "pydantic>=2.13.5",
+    "pydantic-settings>=2.10.1",
     "python-dotenv>=1.2.3",
     "python-multipart>=0.0.32",
-    "requests>=2.34.2",
-    "uvicorn>=0.52.4",
+    "uvicorn[standard]>=0.52.4",
 ]
+
+[project.optional-dependencies]
+db = [
+    "sqlalchemy>=2.0.41",
+    "aiosqlite>=0.20.0",
+    "asyncpg>=0.30.0",
+    "alembic>=1.16.4",
+]
+dev = [
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.0.0",
+    "pytest-cov>=6.2.1",
+    "ruff>=0.12.3",
+    "basedpyright>=1.29.4",
+    "httpx>=0.28.1",
+]
+
+[project.scripts]
+devfit = "devfit.cli:main"
+devfit-dev = "devfit.cli:main_dev"
+
+[build-system]
+requires = ["uv_build>=0.8.5,<0.9.0"]
+build-backend = "uv_build"
+
+# ---------------------------------------------------------------------------
+# Tool configuration
+# ---------------------------------------------------------------------------
+
+[tool.pyright]
+pythonVersion = "3.12"
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "standard"
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportUnusedVariable = "warning"
+reportUntypedFunctionDecorator = "warning"
+# Optional-extra packages (db group) are not installed in the base venv.
+# Suppress unresolvable import errors for those packages only.
+ignore = ["src/devfit/db"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "ANN",  # flake8-annotations (enforce type hints)
+    "D",    # pydocstring (enforce docstrings)
+    "ASYNC",# flake8-async
+    "N",    # pep8-naming
+]
+ignore = [
+    "D100",   # Missing docstring in public module  (covered by file-level docstring)
+    "D104",   # Missing docstring in public package (covered by __init__.py docstring)
+    "ANN401", # Disallow Any — too strict for JSON API clients and plugin boundaries
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.isort]
+known-first-party = ["devfit"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = [
+    "--strict-markers",
+    "--tb=short",
+    "-q",
+]
+markers = [
+    "integration: marks tests that call external APIs (deselect with -m 'not integration')",
+    "slow: marks tests that are known to be slow",
+]
+
+[tool.coverage.run]
+source = ["src/devfit"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
