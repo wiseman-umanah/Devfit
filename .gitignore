@@ -16,3 +16,4 @@ AGENTS.md
 .pytest_cache
 .ruff_cache
 steps.txt
+output

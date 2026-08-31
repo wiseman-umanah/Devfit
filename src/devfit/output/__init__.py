@@ -1,5 +1,5 @@
 """
-Output sub-package: fit-report, CV, evidence-appendix, and trajectory logger.
+Output sub-package: fit-report, CV, evidence-appendix, improvements, and trajectory logger.
 
 Public API
 ----------
@@ -8,9 +8,15 @@ Public API
     Unverifiable claims listed separately, never scored.
 
 ``CVGenerator``
-    Produces an ATS-structured Markdown CV.  Every verified claim line carries
-    a ``[source: <pointer>]`` tag.  Unverifiable claims only on explicit request,
-    always marked ``[CANNOT BE CONFIRMED FROM GITHUB]``.
+    Produces a professional ATS-structured Markdown CV via Groq LLM, grounded
+    strictly in verified claims.  Falls back to a deterministic bullet list if
+    the LLM call fails.  Every verified line carries a ``[source: <pointer>]``
+    tag.  Unverifiable claims only on explicit request, marked
+    ``[NOT VERIFIED FROM GITHUB]``.
+
+``ImprovementGenerator``
+    Produces concrete GitHub improvement suggestions for contradicted and
+    unverifiable-technical claims.  Falls back to a bullet list on LLM failure.
 
 ``EvidenceAppendix``
     Renders the full artefact pointer index for every claim in the run.
@@ -21,6 +27,7 @@ Public API
 
 from devfit.output.appendix import EvidenceAppendix
 from devfit.output.cv import CVGenerator, CVLine
+from devfit.output.improvements import ImprovementGenerator
 from devfit.output.report import FitReportGenerator, FitScore
 from devfit.output.trajectory import TrajectoryLogger
 
@@ -29,6 +36,7 @@ __all__ = [
     "FitScore",
     "CVGenerator",
     "CVLine",
+    "ImprovementGenerator",
     "EvidenceAppendix",
     "TrajectoryLogger",
 ]

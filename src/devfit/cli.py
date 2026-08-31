@@ -175,6 +175,7 @@ async def _run_pipeline(
         CVGenerator,
         EvidenceAppendix,
         FitReportGenerator,
+        ImprovementGenerator,
         TrajectoryLogger,
     )
     from devfit.pipeline import (
@@ -227,6 +228,7 @@ async def _run_pipeline(
 
         all_claims = jd_claims + resume_claims
         claims_by_id = {c.id: c.text for c in all_claims}
+        claims_by_id_to_category = {c.id: c.category for c in all_claims}
 
         # ── Stage 5: Evidence Matcher + First-Pass Classifier ────────────────
         logger.info(
@@ -277,17 +279,22 @@ async def _run_pipeline(
             },
         )
 
-        # ── Stage 7: Report + CV + Appendix generators ───────────────────────
-        logger.info("[7/8] Generating report, CV, and evidence appendix")
+        # ── Stage 7: Report + CV + Appendix + Improvements generators ────────
+        logger.info("[7/8] Generating report, CV, appendix, and improvements")
         jd_title = jd_text.splitlines()[0][:80] if jd_text else "Role"
 
         report_md = FitReportGenerator().generate(
             all_verdicts, claims_by_id, github_username, jd_title
         )
-        cv_md, _ = CVGenerator().generate(
-            all_verdicts, claims_by_id, github_username, include_unverifiable
+        cv_md, _ = await CVGenerator().generate(
+            all_verdicts, claims_by_id, github_username, include_unverifiable,
+            jd_title=jd_title,
         )
         appendix_md = EvidenceAppendix().generate(all_verdicts, claims_by_id)
+        improvements_md = await ImprovementGenerator().generate(
+            all_verdicts, claims_by_id, claims_by_id_to_category,
+            jd_title=jd_title,
+        )
 
         # ── Stage 8: Human Checkpoint ─────────────────────────────────────────
         logger.info("[8/8] Human checkpoint — presenting draft for review")
@@ -303,13 +310,19 @@ async def _run_pipeline(
         (run_dir / "fit_report.md").write_text(final_report_md, encoding="utf-8")
         (run_dir / "cv.md").write_text(final_cv_md, encoding="utf-8")
         (run_dir / "evidence_appendix.md").write_text(appendix_md, encoding="utf-8")
+        (run_dir / "improvements.md").write_text(improvements_md, encoding="utf-8")
 
         tlog.log_event(
             "output_written",
             {
                 "run_dir": str(run_dir),
-                "files": ["fit_report.md", "cv.md", "evidence_appendix.md",
-                          "trajectory_log.jsonl"],
+                "files": [
+                    "fit_report.md",
+                    "cv.md",
+                    "evidence_appendix.md",
+                    "improvements.md",
+                    "trajectory_log.jsonl",
+                ],
             },
         )
 

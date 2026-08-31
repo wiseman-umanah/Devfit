@@ -34,6 +34,7 @@ from __future__ import annotations
 import json
 import tempfile
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -235,7 +236,23 @@ class TestFitReportGenerator:
 class TestCVGenerator:
     """Tests for CVGenerator."""
 
-    def test_all_verified_lines_have_pointer(
+    def _make_generator(self) -> CVGenerator:
+        """Return a CVGenerator with Groq client creation mocked out."""
+        settings_patcher = patch("devfit.output.cv.get_settings")
+        groq_patcher = patch("devfit.output.cv.AsyncGroq")
+        mock_settings = settings_patcher.start()
+        groq_patcher.start()
+        mock_settings.return_value.groq_api_key.get_secret_value.return_value = (
+            "fake-key"
+        )
+        mock_settings.return_value.groq_model = "openai/gpt-oss-120b"
+        gen = CVGenerator()
+        settings_patcher.stop()
+        groq_patcher.stop()
+        return gen
+
+    @pytest.mark.asyncio()
+    async def test_all_verified_lines_have_pointer(
         self,
         verified_verdict: Verdict,
         python_artefact: Artefact,
@@ -244,11 +261,16 @@ class TestCVGenerator:
         """
         Every verified CV line must carry a non-empty artefact pointer.
 
-        This is the critical TRD §3.5 assertion: zero CV lines without a
-        traceable artefact pointer.
+        This is the critical TRD section 3.5 assertion: zero CV lines without
+        a traceable artefact pointer. The pointer-completeness check runs on
+        the structured CVLine objects, which are built deterministically before
+        any LLM call.
         """
-        gen = CVGenerator()
-        _, cv_lines = gen.generate(
+        gen = self._make_generator()
+        # LLM failure forces fallback; cv_lines are always built deterministically
+        gen._client = MagicMock()
+        gen._client.chat.completions.create.side_effect = Exception("mocked failure")
+        _, cv_lines = await gen.generate(
             [verified_verdict], claims_by_id, "testuser"
         )
         for line in cv_lines:
@@ -257,65 +279,75 @@ class TestCVGenerator:
                     f"CV line '{line.text}' has no artefact pointer"
                 )
 
-    def test_source_tag_in_markdown(
+    @pytest.mark.asyncio()
+    async def test_source_tag_in_fallback_markdown(
         self,
         verified_verdict: Verdict,
         claims_by_id: dict[str, str],
     ) -> None:
-        """Verified claim bullets must end with [source: `<pointer>`]."""
-        gen = CVGenerator()
-        md, _ = gen.generate([verified_verdict], claims_by_id, "testuser")
+        """Fallback CV bullets must contain [source: and the pointer."""
+        gen = self._make_generator()
+        gen._client = MagicMock()
+        gen._client.chat.completions.create.side_effect = Exception("mocked failure")
+        md, _ = await gen.generate([verified_verdict], claims_by_id, "testuser")
         assert "[source:" in md
         assert "github.com/testuser" in md
 
-    def test_unverifiable_excluded_by_default(
+    @pytest.mark.asyncio()
+    async def test_unverifiable_excluded_by_default(
         self,
         unverifiable_verdict: Verdict,
         claims_by_id: dict[str, str],
     ) -> None:
         """Unverifiable claims must NOT appear in the CV by default."""
-        gen = CVGenerator()
-        md, cv_lines = gen.generate(
+        gen = self._make_generator()
+        md, cv_lines = await gen.generate(
             [unverifiable_verdict], claims_by_id, "testuser",
             include_unverifiable=False,
         )
+        assert "NOT VERIFIED FROM GITHUB" not in md
         assert "CANNOT BE CONFIRMED" not in md
         assert all(not cl.is_unverifiable for cl in cv_lines)
 
-    def test_unverifiable_included_with_marker(
+    @pytest.mark.asyncio()
+    async def test_unverifiable_included_with_marker(
         self,
         unverifiable_verdict: Verdict,
         claims_by_id: dict[str, str],
     ) -> None:
-        """When include_unverifiable=True, claims appear with marker."""
-        gen = CVGenerator()
-        md, _ = gen.generate(
+        """When include_unverifiable=True, fallback CV shows the marker."""
+        gen = self._make_generator()
+        md, _ = await gen.generate(
             [unverifiable_verdict], claims_by_id, "testuser",
             include_unverifiable=True,
         )
-        assert "CANNOT BE CONFIRMED FROM GITHUB" in md
+        assert "NOT VERIFIED FROM GITHUB" in md
 
-    def test_empty_verified_produces_no_claims_note(
+    @pytest.mark.asyncio()
+    async def test_empty_verified_produces_no_claims_note(
         self,
         unverifiable_verdict: Verdict,
         claims_by_id: dict[str, str],
     ) -> None:
         """With no verified claims, the CV must note this clearly."""
-        gen = CVGenerator()
-        md, cv_lines = gen.generate(
+        gen = self._make_generator()
+        md, cv_lines = await gen.generate(
             [unverifiable_verdict], claims_by_id, "testuser"
         )
         assert "No verified claims" in md
         assert cv_lines == []
 
-    def test_zero_verified_lines_lack_pointer(
+    @pytest.mark.asyncio()
+    async def test_zero_verified_lines_lack_pointer(
         self,
         verified_verdict: Verdict,
         claims_by_id: dict[str, str],
     ) -> None:
         """Assert the zero-missing-pointer invariant for a full verified set."""
-        gen = CVGenerator()
-        _, cv_lines = gen.generate(
+        gen = self._make_generator()
+        gen._client = MagicMock()
+        gen._client.chat.completions.create.side_effect = Exception("mocked failure")
+        _, cv_lines = await gen.generate(
             [verified_verdict], claims_by_id, "testuser"
         )
         missing = [
@@ -325,6 +357,52 @@ class TestCVGenerator:
             f"{len(missing)} CV line(s) lack an artefact pointer: "
             + ", ".join(cl.text for cl in missing)
         )
+
+    @pytest.mark.asyncio()
+    async def test_llm_output_used_when_successful(
+        self,
+        verified_verdict: Verdict,
+        claims_by_id: dict[str, str],
+    ) -> None:
+        """When the LLM call succeeds, its output replaces the fallback."""
+        gen = self._make_generator()
+        msg = MagicMock()
+        msg.content = "# Test User\n\n## Technical Skills\n\n- Python [source: github.com/testuser]"
+        choice = MagicMock()
+        choice.message = msg
+        resp = MagicMock()
+        resp.choices = [choice]
+        gen._client = AsyncMock()
+        gen._client.chat.completions.create = AsyncMock(return_value=resp)
+
+        md, cv_lines = await gen.generate(
+            [verified_verdict], claims_by_id, "testuser"
+        )
+        assert "Test User" in md
+        # cv_lines still built deterministically regardless of LLM output
+        assert len(cv_lines) == 1
+        assert cv_lines[0].artefact_pointer == "github.com/testuser"
+
+    @pytest.mark.asyncio()
+    async def test_em_dashes_stripped_from_llm_output(
+        self,
+        verified_verdict: Verdict,
+        claims_by_id: dict[str, str],
+    ) -> None:
+        """Em-dashes in LLM output must be stripped before returning."""
+        gen = self._make_generator()
+        msg = MagicMock()
+        msg.content = "# Dev\n\nSkilled in Python — and Go [source: github.com/testuser]"
+        choice = MagicMock()
+        choice.message = msg
+        resp = MagicMock()
+        resp.choices = [choice]
+        gen._client = AsyncMock()
+        gen._client.chat.completions.create = AsyncMock(return_value=resp)
+
+        md, _ = await gen.generate([verified_verdict], claims_by_id, "testuser")
+        assert "—" not in md
+        assert "--" not in md
 
 
 # ---------------------------------------------------------------------------
