@@ -1,16 +1,17 @@
 """
-CV generator -- produces a professional, ATS-structured Markdown CV from verified verdicts.
+CV generator -- produces a professional, ATS-structured Markdown CV.
 
 Design rules (per TRD section 3.5)
 ------------------------------------
-- The CV contains only ``verified`` claims by default.
-- Every claim bullet must carry a traceable ``[source: <pointer>]`` tag.
-- ``unverifiable`` claims may be included only at explicit user request
-  and must render with a ``[NOT VERIFIED FROM GITHUB]`` marker.
-- A Groq LLM call converts the verified claim list into professional CV prose.
-  If the LLM call fails for any reason, the generator falls back to a
-  deterministic bullet list so the pipeline never stalls.
-- No em-dashes in output. No filler phrases. Factual, active-voice prose only.
+- The CV is about the candidate, not the JD. The ArtefactBundle provides the
+  candidate's real GitHub profile: name, bio, repos, languages, activity.
+- Verified claims from the JD provide the factual backbone -- what the pipeline
+  confirmed the candidate can actually demonstrate.
+- Every claim bullet carries a traceable [source: <pointer>] tag.
+- Unverifiable claims included only at explicit request, marked
+  [NOT VERIFIED FROM GITHUB].
+- No em-dashes in output. No filler phrases. Active-voice prose only.
+- Falls back to a deterministic bullet list if the LLM call fails.
 """
 
 from __future__ import annotations
@@ -20,11 +21,15 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from groq import AsyncGroq
 
 from devfit.config import get_settings
-from devfit.schema import Classification, Verdict
+from devfit.schema import ArtefactType, Classification, Verdict
+
+if TYPE_CHECKING:
+    from devfit.github.bundle import ArtefactBundle
 
 logger = logging.getLogger(__name__)
 
@@ -46,11 +51,6 @@ def _load_prompt(name: str) -> str:
     -------
     str
         Raw prompt template string.
-
-    Raises
-    ------
-    FileNotFoundError
-        If the prompt file does not exist.
     """
     path = _PROMPTS_DIR / f"{name}.txt"
     if not path.exists():
@@ -60,10 +60,7 @@ def _load_prompt(name: str) -> str:
 
 def _strip_em_dashes(text: str) -> str:
     """
-    Remove em-dashes and double-hyphens from generated text.
-
-    Replaces ``--`` and Unicode em/en dashes with a comma+space so the
-    sentence still reads naturally without the AI-giveaway punctuation.
+    Replace em-dashes and double-hyphens with a comma and space.
 
     Parameters
     ----------
@@ -98,33 +95,93 @@ class CVLine:
     is_unverifiable: bool = False
 
 
-def _extract_display_name(github_username: str, verified: list[Verdict]) -> str:
+# ---------------------------------------------------------------------------
+# Bundle profile extraction
+# ---------------------------------------------------------------------------
+
+
+def _extract_profile(
+    github_username: str, bundle: ArtefactBundle | None
+) -> dict[str, str]:
     """
-    Derive a display name from artefact metadata or fall back to the username.
+    Extract structured candidate profile fields from an ArtefactBundle.
+
+    Returns a dict with keys used directly as prompt template variables:
+    ``display_name``, ``account_created``, ``public_repos``, ``bio``,
+    ``top_languages``, ``recent_activity``, ``repo_list``.
 
     Parameters
     ----------
     github_username : str
-        Candidate GitHub username.
-    verified : list[Verdict]
-        Verified verdicts; account metadata artefacts may carry a bio with name.
+        Candidate GitHub username (fallback when bundle is missing).
+    bundle : ArtefactBundle | None
+        Collected GitHub artefacts.  When ``None``, all fields fall back
+        to the username and placeholder strings.
 
     Returns
     -------
-    str
-        Best available display name for the CV header.
+    dict[str, str]
+        Flat string values ready for prompt interpolation.
     """
-    for v in verified:
-        for artefact in v.evidence:
-            if artefact.type == "account_metadata":
-                # bio field format: 'Account created ..., bio: "Name Here ..."'
-                bio_match = re.search(r'bio:\s*"([^"]+)"', artefact.extracted_fact)
-                if bio_match:
-                    # Take first segment if it looks like a name (no spaces = not a sentence)
-                    candidate = bio_match.group(1).split(".")[0].strip()
-                    if len(candidate.split()) <= 4:
-                        return candidate
-    return github_username
+    profile: dict[str, str] = {
+        "display_name": github_username,
+        "account_created": "unknown",
+        "public_repos": "unknown",
+        "bio": "No bio available.",
+        "top_languages": "unknown",
+        "recent_activity": "unknown",
+        "repo_list": "No repositories available.",
+    }
+
+    if bundle is None:
+        return profile
+
+    # Account metadata
+    for a in bundle.by_type(ArtefactType.ACCOUNT_METADATA):
+        fact = a.extracted_fact
+        # Extract account creation date
+        date_match = re.search(r"Account created (\d{4}-\d{2}-\d{2})", fact)
+        if date_match:
+            profile["account_created"] = date_match.group(1)
+        # Extract public repo count
+        repos_match = re.search(r"(\d+) public repos", fact)
+        if repos_match:
+            profile["public_repos"] = repos_match.group(1)
+        # Extract bio
+        bio_match = re.search(r'bio:\s*"([^"]+)"', fact)
+        if bio_match:
+            profile["bio"] = bio_match.group(1)
+            # Try to extract a real name from bio (first 1-4 word segment)
+            name_candidate = bio_match.group(1).split(".")[0].strip()
+            if 1 < len(name_candidate.split()) <= 4:
+                profile["display_name"] = name_candidate
+
+    # Language stats
+    for a in bundle.by_type(ArtefactType.LANGUAGE_STATS):
+        # Strip "Language breakdown across top repos: " prefix if present
+        fact = a.extracted_fact
+        if ":" in fact:
+            fact = fact.split(":", 1)[1].strip()
+        profile["top_languages"] = fact
+        break
+
+    # Top repos (by star count, capped at 8 for readability)
+    repo_artefacts = bundle.by_type(ArtefactType.REPO)
+    if repo_artefacts:
+        repo_lines = [f"  - {a.extracted_fact}" for a in repo_artefacts[:8]]
+        profile["repo_list"] = "\n".join(repo_lines)
+
+    # Contribution graph
+    for a in bundle.by_type(ArtefactType.CONTRIBUTION_GRAPH):
+        profile["recent_activity"] = a.extracted_fact
+        break
+
+    return profile
+
+
+# ---------------------------------------------------------------------------
+# Prompt helpers
+# ---------------------------------------------------------------------------
 
 
 def _build_verified_claims_json(
@@ -143,7 +200,7 @@ def _build_verified_claims_json(
     Returns
     -------
     str
-        JSON array string, each entry having ``text`` and ``artefact_pointer``.
+        JSON array, each entry with ``text`` and ``artefact_pointer``.
     """
     payload = [
         {
@@ -155,15 +212,25 @@ def _build_verified_claims_json(
     return json.dumps(payload, indent=2)
 
 
+# ---------------------------------------------------------------------------
+# Fallback (deterministic, no LLM)
+# ---------------------------------------------------------------------------
+
+
 def _build_fallback_cv(
     verified: list[Verdict],
     unverifiable: list[Verdict],
     claims_by_id: dict[str, str],
     github_username: str,
+    display_name: str,
     include_unverifiable: bool,
+    profile: dict[str, str],
 ) -> str:
     """
     Deterministic bullet-list CV used when the LLM call fails.
+
+    Incorporates real profile data (languages, repos, activity) even without
+    the LLM so the output is still candidate-centric.
 
     Parameters
     ----------
@@ -172,23 +239,32 @@ def _build_fallback_cv(
     unverifiable : list[Verdict]
         Unverifiable verdicts.
     claims_by_id : dict[str, str]
-        Mapping of claim_id to human-readable claim text.
+        Mapping of claim_id to claim text.
     github_username : str
         Candidate GitHub username.
+    display_name : str
+        Display name for the CV header.
     include_unverifiable : bool
         Whether to include unverifiable claims.
+    profile : dict[str, str]
+        Extracted profile fields from the bundle.
 
     Returns
     -------
     str
-        Plain Markdown CV with one bullet per verified claim.
+        Plain Markdown CV.
     """
     lines: list[str] = [
-        f"# {github_username}",
+        f"# {display_name}",
         "",
         f"GitHub: https://github.com/{github_username}",
         "",
     ]
+
+    # Brief profile summary line
+    bio = profile.get("bio", "")
+    if bio and bio != "No bio available.":
+        lines += [f"*{bio}*", ""]
 
     if not verified:
         lines += [
@@ -204,11 +280,24 @@ def _build_fallback_cv(
             lines.append(f"- {claim_text}  [source: `{pointer}`]")
         lines.append("")
 
+    # Always include real GitHub stats if available
+    top_langs = profile.get("top_languages", "")
+    if top_langs and top_langs != "unknown":
+        lines += ["## GitHub Profile", ""]
+        lines.append(f"- Top languages: {top_langs}")
+        activity = profile.get("recent_activity", "")
+        if activity and activity != "unknown":
+            lines.append(f"- Activity: {activity}")
+        pub_repos = profile.get("public_repos", "")
+        if pub_repos and pub_repos != "unknown":
+            lines.append(f"- Public repositories: {pub_repos}")
+        lines.append("")
+
     if include_unverifiable and unverifiable:
         lines += [
             "---",
             "",
-            "## Additional Claims (Unverifiable from GitHub)",
+            "## Additional Claims (Not Verified from GitHub)",
             "",
             f"> {_UNVERIFIABLE_MARKER}",
             "",
@@ -221,28 +310,31 @@ def _build_fallback_cv(
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# CVGenerator
+# ---------------------------------------------------------------------------
+
+
 class CVGenerator:
     """
-    Produce an ATS-structured Markdown CV from verified verdicts.
+    Produce a professional ATS-structured Markdown CV from verified verdicts.
 
-    Uses a Groq LLM call with the ``cv_generator.txt`` prompt to convert the
-    verified claim list into professional CV prose.  The LLM is strictly
-    grounded: it may only reference claims and artefact pointers that were
-    passed to it.
+    The generator is candidate-centric: it passes the candidate's real GitHub
+    profile (repos, languages, activity, bio) to the LLM alongside the list
+    of verified claims, so the output reads as a description of a person, not
+    a compliance checklist.
 
-    If the LLM call fails for any reason, falls back to a deterministic
-    bullet-list CV so the pipeline always produces output.
+    The LLM is strictly grounded: it may only assert facts traceable to the
+    ArtefactBundle or the verified claims list.
 
-    Every verified CV line carries an ``[source: <pointer>]`` tag.
-    Unverifiable claims are only included when ``include_unverifiable=True``
-    and are marked ``[NOT VERIFIED FROM GITHUB]``.
+    Falls back to a deterministic bullet list if the LLM call fails.
 
     Examples
     --------
     >>> gen = CVGenerator()
     >>> cv_md, cv_lines = gen.generate(
     ...     verdicts, claims_by_id, github_username,
-    ...     include_unverifiable=False,
+    ...     bundle=bundle,
     ...     jd_title="Senior Python Engineer",
     ... )
     """
@@ -256,19 +348,21 @@ class CVGenerator:
         )
         self._model = settings.groq_model
 
-    async def generate(  # type: ignore[override]
+    async def generate(
         self,
         verdicts: list[Verdict],
         claims_by_id: dict[str, str],
         github_username: str,
         include_unverifiable: bool = False,
         jd_title: str = "Software Engineer",
+        bundle: ArtefactBundle | None = None,
     ) -> tuple[str, list[CVLine]]:
         """
         Generate a professional CV and return it alongside structured lines.
 
-        Calls Groq with the verified claims as strict grounding.  Falls back
-        to a deterministic bullet list if the LLM call fails.
+        Calls Groq with the candidate's real GitHub profile and the verified
+        claims as grounding.  Falls back to a deterministic bullet list if
+        the LLM call fails.
 
         Parameters
         ----------
@@ -277,26 +371,32 @@ class CVGenerator:
         claims_by_id : dict[str, str]
             Mapping of ``claim_id`` to claim text for human-readable output.
         github_username : str
-            Candidate's GitHub username (used in the CV header and prompt).
+            Candidate's GitHub username.
         include_unverifiable : bool
-            When ``True``, unverifiable claims are appended with a visible
-            ``[NOT VERIFIED FROM GITHUB]`` marker.
+            When ``True``, unverifiable claims are appended with
+            ``[NOT VERIFIED FROM GITHUB]`` markers.
         jd_title : str
-            Short title of the role the CV is being tailored for.
+            Short title of the role the CV is tailored for.
+        bundle : ArtefactBundle | None
+            Collected GitHub artefacts.  When supplied, real profile data
+            (name, bio, repos, languages, activity) is embedded in the
+            prompt so the LLM can write a candidate-centric CV.
 
         Returns
         -------
         tuple[str, list[CVLine]]
             The full Markdown CV string and the list of ``CVLine`` objects.
-            Every non-unverifiable ``CVLine`` is guaranteed to have a
-            non-empty ``artefact_pointer``.
+            Every non-unverifiable ``CVLine`` has a non-empty
+            ``artefact_pointer`` (pointer-completeness invariant).
         """
         verified = [v for v in verdicts if v.classification == Classification.VERIFIED]
         unverifiable = [
             v for v in verdicts if v.classification == Classification.UNVERIFIABLE
         ]
+        profile = _extract_profile(github_username, bundle)
+        display_name = profile["display_name"]
 
-        # Build structured CVLine objects (used for the pointer-completeness check)
+        # Build structured CVLine objects (pointer-completeness check data)
         cv_lines: list[CVLine] = [
             CVLine(
                 text=claims_by_id.get(v.claim_id, v.claim_id),
@@ -309,25 +409,21 @@ class CVGenerator:
         if not verified:
             md = _build_fallback_cv(
                 verified, unverifiable, claims_by_id,
-                github_username, include_unverifiable,
+                github_username, display_name, include_unverifiable, profile,
             )
             return md, cv_lines
 
-        # Attempt LLM-generated professional prose
         md = await self._generate_with_llm(
             verified=verified,
             unverifiable=unverifiable,
             claims_by_id=claims_by_id,
             github_username=github_username,
+            display_name=display_name,
             include_unverifiable=include_unverifiable,
             jd_title=jd_title,
+            profile=profile,
         )
-
         return md, cv_lines
-
-    # ------------------------------------------------------------------
-    # Private helpers
-    # ------------------------------------------------------------------
 
     async def _generate_with_llm(
         self,
@@ -335,8 +431,10 @@ class CVGenerator:
         unverifiable: list[Verdict],
         claims_by_id: dict[str, str],
         github_username: str,
+        display_name: str,
         include_unverifiable: bool,
         jd_title: str,
+        profile: dict[str, str],
     ) -> str:
         """
         Call Groq with the cv_generator prompt and return the CV Markdown.
@@ -353,17 +451,20 @@ class CVGenerator:
             Claim ID to text mapping.
         github_username : str
             Candidate GitHub username.
+        display_name : str
+            Best available display name for the header.
         include_unverifiable : bool
             Whether to include unverifiable claims section.
         jd_title : str
             Role title for context in the prompt.
+        profile : dict[str, str]
+            Extracted profile fields from the bundle.
 
         Returns
         -------
         str
             Markdown CV string, em-dash free.
         """
-        display_name = _extract_display_name(github_username, verified)
         verified_claims_json = _build_verified_claims_json(verified, claims_by_id)
 
         unverifiable_section = ""
@@ -377,16 +478,18 @@ class CVGenerator:
                 + unverifiable_items
             )
 
-        # GitHub API returns name separately; we pass username as fallback
-        contact_line = f"[{github_username}](https://github.com/{github_username})"
-
         prompt = self._prompt_template.format(
             github_username=github_username,
             display_name=display_name,
             jd_title=jd_title,
             verified_claims_json=verified_claims_json,
             unverifiable_section=unverifiable_section,
-            contact_line=contact_line,
+            account_created=profile["account_created"],
+            public_repos=profile["public_repos"],
+            bio=profile["bio"],
+            top_languages=profile["top_languages"],
+            recent_activity=profile["recent_activity"],
+            repo_list=profile["repo_list"],
         )
 
         try:
@@ -400,13 +503,11 @@ class CVGenerator:
             logger.debug("CV generator LLM response: %d chars", len(raw))
         except Exception as exc:  # noqa: BLE001
             logger.warning(
-                "CV generator LLM call failed (%s), falling back to bullet list", exc
+                "CV generator LLM call failed (%s), using fallback", exc
             )
             return _build_fallback_cv(
                 verified, unverifiable, claims_by_id,
-                github_username, include_unverifiable,
+                github_username, display_name, include_unverifiable, profile,
             )
 
-        # Strip any em-dashes the LLM smuggled in despite the instruction
-        clean = _strip_em_dashes(raw.strip())
-        return clean
+        return _strip_em_dashes(raw.strip())

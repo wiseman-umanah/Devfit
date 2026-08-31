@@ -289,7 +289,7 @@ async def _run_pipeline(
         )
         cv_md, _ = await CVGenerator().generate(
             all_verdicts, claims_by_id, github_username, include_unverifiable,
-            jd_title=jd_title,
+            jd_title=jd_title, bundle=bundle,
         )
         appendix_md = EvidenceAppendix().generate(all_verdicts, claims_by_id)
         improvements_md = await ImprovementGenerator().generate(

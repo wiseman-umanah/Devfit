@@ -248,11 +248,12 @@ async def _run_devfit_case(
 
     all_verdicts = skip_verdicts + final_verdicts
 
-    # Stage 7: generate CV (for unsupported CV claim metric)
-    _, cv_lines = CVGenerator().generate(all_verdicts, claims_by_id, username)
-
-    # Generate report (for completeness — not scored)
+    # Stage 7: generate CV + report (for eval metrics)
     jd_title = jd_text.splitlines()[0][:80] if jd_text else "Role"
+    _, cv_lines = await CVGenerator().generate(
+        all_verdicts, claims_by_id, username,
+        jd_title=jd_title, bundle=bundle,
+    )
     _ = FitReportGenerator().generate(all_verdicts, claims_by_id, username, jd_title)
 
     # Write output JSON (sync mkdir is fine — this runs in asyncio thread, no trio)
