@@ -1,63 +1,28 @@
 # DevFit
 
-**Hallucination is not a bug to patch. It's the architecture to replace.**
+**Your GitHub profile is your CV. DevFit just writes it for you.**
 
-DevFit takes a job description and a public GitHub username. It produces a fit report and a tailored CV where every material claim is classified as **Verified**, **Contradicted**, or **Unverifiable** against real GitHub artefacts — and the CV only contains claims that survived that test.
+DevFit takes a public GitHub username and generates a professional, ATS-safe CV — grounded entirely in what is actually in the profile. No hallucinations, no invented skills, no filler phrases. Every claim traces to a real GitHub artefact.
 
-The refusal mechanism is the product.
-
----
-
-## The Problem
-
-Most JD → CV tools do embedding similarity between resume and JD text, then generate a keyword-optimized rewrite. Plausible is not the same as true. The output sounds great and cannot be defended.
-
-DevFit's entire design makes hallucination structurally expensive: every claim that reaches the final CV must survive an independent verification stage or be refused. The system does not soften this constraint when it's inconvenient.
+Optionally paste a job description and DevFit tailors the CV to the role, then scores how well the profile matches it.
 
 ---
 
-## How It Works
+## Quick start (Docker)
 
-```
-JD text + GitHub username
-         │
-         ▼
-[Stage 3] GitHub Collector        ← async concurrent, per-run cache
-         │  ArtefactBundle (repos, language stats, READMEs,
-         │  contribution graph, account metadata)
-         ▼
-[Stage 4] JD Analyzer             ← Groq, temperature=0.0
-         │  list[Claim] — atomic, checkable assertions
-         ▼
-[Stage 5] Evidence Matcher        ← keyword scoring, skip likely-unverifiable
-         │  + First-Pass Classifier (Groq, concurrent)
-         │  → draft Verdicts (verified / contradicted / unverifiable)
-         ▼
-[Stage 6] Independent Verifier    ← two independent layers
-         │  Layer 1: Rule-based (date arithmetic, language presence, zero-activity)
-         │  Layer 2: ConstrainedLLM (Groq, confirm/downgrade ONLY — cannot upgrade)
-         │  → final Verdicts + VerifierDecisions (full trajectory)
-         ▼
-[Stage 7] Report + CV Generator   ← evidence-linked Markdown
-         │  fit_report.md — score built ONLY from verified/contradicted
-         │  cv.md — every verified line carries an artefact pointer
-         │  evidence_appendix.md — full pointer index
-         ▼
-[Stage 8] Human Checkpoint        ← approve / edit / abort
-         │  No file is written without explicit approval.
-         ▼
-  output/<run_id>/
-    ├── fit_report.md
-    ├── cv.md
-    ├── evidence_appendix.md
-    └── trajectory_log.jsonl      ← every stage event + verifier decisions
+```bash
+git clone <repo>
+cd devfit
+cp .env.example .env
+# Edit .env — add your GROQ_API_KEY (required) and optionally GITHUB_TOKEN
+docker compose up
 ```
 
-The verifier is **independent**: Layer 1 runs synchronously. If a rule resolves a claim, Layer 2 (LLM) never sees it. If Layer 2 runs, it can only confirm or downgrade — never upgrade a verdict.
+Open **http://localhost:8000** in your browser.
 
 ---
 
-## Installation
+## Quick start (local)
 
 Requires Python 3.12 and [`uv`](https://docs.astral.sh/uv/).
 
@@ -66,133 +31,186 @@ git clone <repo>
 cd devfit
 uv sync
 cp .env.example .env
-# Fill in GROQ_API_KEY (required) and GITHUB_TOKEN (optional, raises rate limit)
+# Edit .env — add GROQ_API_KEY
+uv run devfit-server
 ```
+
+Open **http://localhost:8000**.
 
 ---
 
-## Usage
+## Environment variables
 
-```bash
-# Production run
-devfit --jd path/to/jd.txt --github torvalds
-
-# With optional resume cross-check
-devfit --jd path/to/jd.txt --github torvalds --resume resume.txt
-
-# Include unverifiable claims in CV with explicit marker
-devfit --jd "Senior Python engineer..." --github tiangolo --include-unverifiable
-
-# Verbose dev mode
-devfit-dev --jd jd.txt --github sindresorhus
-```
-
-Output is written to `./output/<run_id>/` after you approve at the human checkpoint.
-
----
-
-## Evaluation
-
-10 real public GitHub profiles were selected to cover strong fits, clear mismatches, partial fits, and an engineered contradicted case. 53 material claims were manually labeled before any pipeline run.
-
-```bash
-# Run the full eval (requires live keys, ~30 min)
-uv run python eval/run_eval.py
-
-# Run a single case
-uv run python eval/run_eval.py --cases case_01_strong_fit
-
-# Run only DevFit (skip Baseline)
-uv run python eval/run_eval.py --devfit-only
-
-# Score results against ground truth
-uv run python eval/score.py \
-    --ground-truth eval/ground_truth.json \
-    --devfit-outputs eval/devfit_outputs/ \
-    --baseline-outputs eval/baseline_outputs/
-```
-
-Metrics reported:
-
-| Metric | Baseline | DevFit |
+| Variable | Required | Description |
 |---|---|---|
-| Hallucination Rate | (TBD after live run) | (TBD) |
-| Misclassification Rate | — | (TBD) |
-| CV Claims Without Evidence | 100% | Target: 0% |
+| `GROQ_API_KEY` | **Yes** | Groq inference API key. Get one free at [console.groq.com](https://console.groq.com). |
+| `GITHUB_TOKEN` | No | Personal-access token for the **server** (not the user's). Raises rate limit from 60 to 5,000 req/hr. Generate at [github.com/settings/tokens](https://github.com/settings/tokens) — zero scopes required. |
+| `LOG_LEVEL` | No | `INFO` (default) or `DEBUG`. |
+| `DEVFIT_ENV` | No | `development` (default) or `production`. |
 
-See [`eval/README.md`](eval/README.md) for full test-case descriptions and labeling methodology.
+---
+
+## How it works
+
+```
+GitHub username (+ optional JD + optional details)
+        │
+        ▼
+GitHub Collector   — async, per-run cache
+        │  ArtefactBundle: repos, language stats, READMEs,
+        │  contribution graph, account metadata
+        ▼
+4-Agent CV Pipeline
+  Agent 1 — Generator  (gpt-oss-20b)    drafts the full CV
+  Agent 2 — Guard      (llama-guard-86m) safety + injection filter
+  Agent 3 — Reviewer   (gpt-oss-120b)   quality audit (6 rules, JSON verdict)
+  Agent 4 — Polisher   (llama-22m)      tightens phrasing, removes redundancy
+        │
+        ▼
+Post-processing
+  — em-dashes, emojis, filler phrases stripped
+  — star counts below 3 suppressed
+  — contact details from "Other Details" tab injected
+        │
+        ▼
+Live preview  →  Edit CV  →  Export PDF
+```
+
+When a job description is provided the pipeline uses `tailored_cv.txt` instead of `standalone_cv.txt` and enables the **Match CV to JD** button, which scores matched skills and gaps side-by-side in the preview panel.
+
+---
+
+## Web UI
+
+The UI is a two-panel split view accessible at `/` or `/<github-username>` (e.g. `http://localhost:8000/torvalds` pre-fills the username field).
+
+**Left panel — Generate tab**
+
+| Sub-tab | What goes here |
+|---|---|
+| GitHub | Username + optional reference CV (drag-and-drop file upload, read in-memory only) |
+| Job Description | Paste a JD to tailor the CV and enable the Match button |
+| Other Details | Name, email, phone, LinkedIn, portfolio, location, extra skills, bio hint |
+
+**Left panel — Edit CV tab**
+
+Markdown editor with formatting toolbar (Bold, Italic, H2, H3, bullet/numbered list, Undo, Redo) and an AI Edit bar — select any text, type an instruction, click AI Edit.
+
+**Right panel**
+
+Live Markdown preview (CV canvas is always white, even in dark mode) with the JD match report directly below it after a match run.
+
+**Top bar:** Match CV to JD · Export PDF · Dark/Light toggle
+
+---
+
+## REST API
+
+The server exposes a versioned JSON API used by the UI (and available for direct use):
+
+| Method | Route | Description |
+|---|---|---|
+| `GET` | `/` | Web UI |
+| `GET` | `/{username}` | Web UI with username pre-filled |
+| `GET` | `/health` | Liveness probe → `{"status": "ok"}` |
+| `POST` | `/api/v1/generate` | GitHub username → CV Markdown |
+| `POST` | `/api/v1/edit` | AI-rewrite a selected CV section |
+| `POST` | `/api/v1/match` | CV + JD → score, matched skills, gaps |
+| `POST` | `/api/v1/export-pdf` | CV Markdown → PDF binary stream |
+| `POST` | `/api/v1/analyze` | Full JD-fit pipeline (evidence-grounded) |
+
+Interactive docs at **http://localhost:8000/docs**.
+
+---
+
+## PDF export
+
+PDF export uses **pandoc** + **Chrome headless** on the server. If either is unavailable the endpoint returns `503` and the UI shows a clear message — the Markdown CV is always available as a fallback.
+
+Inside Docker, pandoc and Chrome are **not** included by default (they significantly inflate image size). To enable PDF export in Docker, uncomment the relevant lines in the `Dockerfile` and rebuild.
+
+---
+
+## The JD-fit pipeline (`/api/v1/analyze`)
+
+For deeper analysis the full evidence-grounded pipeline is also available:
+
+```
+JD text + GitHub username
+        │
+        ▼
+JD Analyzer         → list[Claim] (atomic, checkable assertions)
+        ▼
+Evidence Matcher    → keyword scoring; skip likely-unverifiable claims
++ First-Pass Classifier  (Groq, concurrent)
+        ▼
+Independent Verifier
+  Layer 1: rule-based (date arithmetic, language presence, zero-activity)
+  Layer 2: ConstrainedLLM — can confirm or downgrade; CANNOT upgrade
+        ▼
+Fit Report + Tailored CV + Evidence Appendix + Improvement Suggestions
+```
+
+Every claim in the output is classified **Verified**, **Contradicted**, or **Unverifiable** against real GitHub artefacts.
 
 ---
 
 ## Development
 
 ```bash
-# Unit tests only (no network)
-uv run pytest -m "not integration"
-
-# Integration tests (requires GITHUB_TOKEN)
-uv run pytest -m integration
-
-# Lint
-uv run ruff check src/ tests/ eval/
-
-# Type check
-uv run basedpyright src/
+uv sync                               # install all deps including dev
+uv run pytest -m "not integration"    # unit tests (no network, ~10s)
+uv run pytest -m integration          # network tests (requires live keys)
+uv run ruff check src/ tests/         # lint
+uv run basedpyright src/              # type check
 ```
 
-All three must pass clean before marking a stage complete.
+All three must pass clean before committing.
 
 ---
 
 ## Stack
 
-| Component | Choice | Reason |
-|---|---|---|
-| Runtime | Python 3.12 | Stable async, typed StrEnum |
-| Package manager | `uv` | Fast, reproducible lockfile |
-| LLM | Groq `openai/gpt-oss-120b` | Fast inference, low cost |
-| Async HTTP | `httpx` | Native async, used by Groq SDK |
-| Schema | Pydantic v2 | Model validators enforce invariants |
-| Config | pydantic-settings | `.env` + env var merge |
-| Lint/Format | ruff | Single tool, 88-char limit |
-| Types | basedpyright | Strict, stricter than mypy |
+| Component | Choice |
+|---|---|
+| Language | Python 3.12 |
+| Package manager | `uv` (lockfile-pinned) |
+| Web framework | FastAPI + Uvicorn |
+| Templating | Jinja2 + static files |
+| LLM | Groq (`openai/gpt-oss-120b`, `gpt-oss-20b`, `llama-guard`) |
+| HTTP client | `httpx` (async) |
+| Schema / validation | Pydantic v2 |
+| Config | pydantic-settings (`.env` merge) |
+| Lint / format | ruff |
+| Type checking | basedpyright |
+| Container | Docker (multi-stage, non-root, slim) |
 
 ---
 
-## Trajectory Logging
-
-Every pipeline run writes a `trajectory_log.jsonl` to the output directory. Each line is a JSON event:
-
-```json
-{"timestamp": "2024-01-15T10:23:11Z", "stage": "verification_complete", "data": {"total_verdicts": 12, "verified": 7, "contradicted": 2, "unverifiable": 3, "downgraded_count": 1}}
-{"timestamp": "2024-01-15T10:23:11Z", "stage": "verifier_decision", "data": {"claim_id": "jd-003", "layer": 2, "was_downgraded": true, "reason": "pointer not found in evidence"}}
-{"timestamp": "2024-01-15T10:23:12Z", "stage": "human_checkpoint", "data": {"action": "approved"}}
-```
-
-The trajectory is the evidence trail that shows *why* each claim was classified the way it was.
-
----
-
-## Project Layout
+## Project layout
 
 ```
 devfit/
 ├── src/devfit/
-│   ├── schema.py           # Claim, Artefact, Verdict (Pydantic v2, frozen)
-│   ├── config.py           # Settings via pydantic-settings, get_settings()
-│   ├── cli.py              # devfit / devfit-dev entry points
-│   ├── github/             # client.py, collector.py, bundle.py
-│   ├── pipeline/           # analyzer.py, matcher.py, classifier.py
-│   ├── verifier/           # rules.py, llm.py, verifier.py
-│   ├── output/             # report.py, cv.py, appendix.py, trajectory.py
-│   ├── checkpoint/         # HumanCheckpoint (approve/edit/abort)
-│   ├── baseline/           # BaselinePipeline (hallucination benchmark)
-│   ├── api/                # FastAPI app (optional web interface)
-│   └── prompts/            # all LLM prompts as .txt files
-├── eval/
-│   ├── test_cases/         # 10 cases: jd.txt + github_username.txt
-│   ├── ground_truth.json   # 53 manually labeled claims (locked)
-│   ├── run_eval.py         # batch eval runner
-│   └── score.py            # Hallucination Rate + Misclassification Rate
-└── tests/                  # mirrors src/devfit/ layout, 109 unit tests
+│   ├── schema.py              Claim, Artefact, Verdict — Pydantic v2, frozen
+│   ├── config.py              Settings, get_settings()
+│   ├── github/                client.py, collector.py, bundle.py
+│   ├── pipeline/              analyzer.py, matcher.py, classifier.py
+│   ├── verifier/              rules.py, llm.py, verifier.py
+│   ├── output/                cv.py, standalone_cv.py, agents.py,
+│   │                          cv_reviewer.py, cv_utils.py, report.py,
+│   │                          appendix.py, improvements.py, pdf.py
+│   ├── baseline/              BaselinePipeline (hallucination benchmark)
+│   ├── api/
+│   │   ├── app.py             FastAPI app, routes
+│   │   ├── static/            devfit.css, devfit.js
+│   │   ├── templates/         index.html (Jinja2)
+│   │   └── routers/           generate, edit, match, export_pdf, analyze, health
+│   └── prompts/               all LLM prompts as .txt files
+├── tests/                     195 unit tests, mirrors src/devfit/
+├── eval/                      10 real-profile test cases, ground truth labels
+├── Dockerfile
+├── docker-compose.yml
+├── pyproject.toml
+└── .env.example
 ```

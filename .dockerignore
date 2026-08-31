@@ -1,0 +1,29 @@
+# Version control
+.git
+.gitignore
+
+# Python artifacts
+__pycache__
+*.py[oc]
+*.egg-info
+.venv
+.ruff_cache
+.pytest_cache
+
+# Dev + test files
+tests/
+eval/
+.bob
+
+# Secrets — never bake these into the image
+.env
+
+# Docs / design
+*.md
+prd.md
+trd.md
+steps.txt
+AGENTS.md
+
+# Output from local runs
+output/

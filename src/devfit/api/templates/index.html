@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DevFit{% if username %} — {{ username }}{% endif %}</title>
+<link rel="stylesheet" href="/static/devfit.css">
+</head>
+<body>
+
+<!-- ── Top bar ──────────────────────────────────────────────────────────── -->
+<div class="topbar">
+  <div class="topbar-brand">Dev<span>Fit</span></div>
+  <div class="topbar-spacer"></div>
+  <button class="btn btn-warn"    id="btn-match"  disabled>Match CV to JD</button>
+  <button class="btn btn-primary" id="btn-export" disabled>Export PDF</button>
+  <button class="btn btn-icon"    id="btn-theme"  title="Toggle dark / light mode">Dark</button>
+</div>
+
+<!-- ── Main layout ──────────────────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- ═══ Left panel ═══════════════════════════════════════════════════════ -->
+  <div class="left-panel">
+
+    <!-- Outer tabs: Generate | Edit CV -->
+    <div class="outer-tabs">
+      <div class="outer-tab active" data-outer="generate">Generate</div>
+      <div class="outer-tab"        data-outer="editor">Edit CV</div>
+    </div>
+
+    <!-- ── Outer tab: Generate ─────────────────────────────────────────── -->
+    <div class="outer-panel active" id="outer-generate">
+
+      <!-- Inner sub-tabs -->
+      <div class="inner-tabs">
+        <div class="inner-tab active" data-inner="github">GitHub</div>
+        <div class="inner-tab"        data-inner="jd">Job Description</div>
+        <div class="inner-tab"        data-inner="details">Other Details</div>
+      </div>
+
+      <!-- Inner tab: GitHub -->
+      <div class="inner-panel active" id="inner-github">
+        <div class="field">
+          <label>GitHub Username</label>
+          <input type="text" id="github-username"
+                 value="{{ username }}"
+                 placeholder="e.g. torvalds"
+                 autocomplete="off" spellcheck="false">
+          <div class="field-hint">Your public GitHub profile. All CV content is sourced from it.</div>
+        </div>
+
+        <div class="field">
+          <label>Reference CV <span class="optional-badge">optional</span></label>
+          <div class="drop-zone" id="ref-cv-drop">
+            <input type="file" id="ref-cv-input" accept=".txt,.md,.pdf,.doc,.docx">
+            <div class="drop-zone-icon">&#128196;</div>
+            <div class="drop-zone-label">
+              Drop a file or <strong>click to browse</strong><br>
+              <span style="font-size:11px;">.txt &nbsp;.md &nbsp;.pdf &nbsp;.doc &nbsp;.docx</span>
+            </div>
+            <div class="drop-zone-filename" id="ref-cv-filename"></div>
+            <button class="drop-zone-clear" id="ref-cv-clear">Remove file</button>
+          </div>
+          <div class="field-hint">Style reference only. Read in-memory, never stored.</div>
+        </div>
+      </div>
+
+      <!-- Inner tab: Job Description -->
+      <div class="inner-panel" id="inner-jd">
+        <div class="field">
+          <label>Job Description <span class="optional-badge">optional</span></label>
+          <textarea id="jd-text" rows="12"
+                    placeholder="Paste the full job description here...&#10;&#10;When provided, DevFit tailors the CV to this role and enables the Match button."></textarea>
+          <div class="field-hint">The CV will be rewritten to highlight skills that match this role.</div>
+        </div>
+      </div>
+
+      <!-- Inner tab: Other Details -->
+      <div class="inner-panel" id="inner-details">
+        <p class="details-intro">
+          Add extra details not available on GitHub. Each field you fill in
+          enriches the generated CV.
+        </p>
+
+        <div class="field">
+          <label>Full Name <span class="optional-badge">optional</span></label>
+          <input type="text" id="detail-name" placeholder="e.g. Ada Lovelace"
+                 autocomplete="name">
+          <div class="field-hint">Overrides the name pulled from your GitHub profile.</div>
+        </div>
+
+        <div class="field">
+          <label>Email <span class="optional-badge">optional</span></label>
+          <input type="text" id="detail-email" placeholder="e.g. ada@example.com"
+                 autocomplete="email">
+        </div>
+
+        <div class="field">
+          <label>Phone <span class="optional-badge">optional</span></label>
+          <input type="text" id="detail-phone" placeholder="e.g. +1 555 000 1234"
+                 autocomplete="tel">
+        </div>
+
+        <div class="field">
+          <label>LinkedIn <span class="optional-badge">optional</span></label>
+          <input type="text" id="detail-linkedin" placeholder="linkedin.com/in/your-handle"
+                 autocomplete="off" spellcheck="false">
+        </div>
+
+        <div class="field">
+          <label>Portfolio / Website <span class="optional-badge">optional</span></label>
+          <input type="text" id="detail-website" placeholder="e.g. yoursite.dev"
+                 autocomplete="off" spellcheck="false">
+        </div>
+
+        <div class="field">
+          <label>Location <span class="optional-badge">optional</span></label>
+          <input type="text" id="detail-location" placeholder="e.g. Lagos, Nigeria"
+                 autocomplete="off">
+        </div>
+
+        <div class="field">
+          <label>Skills to Highlight <span class="optional-badge">optional</span></label>
+          <textarea id="detail-skills" rows="3"
+                    placeholder="List skills not obvious from your repos, e.g. Agile, CI/CD, team leadership, Spanish..."></textarea>
+          <div class="field-hint">Comma-separated or one per line. Added to the Technical Skills section.</div>
+        </div>
+
+        <div class="field">
+          <label>Bio / Summary Hint <span class="optional-badge">optional</span></label>
+          <textarea id="detail-bio" rows="3"
+                    placeholder="A sentence or two about what makes you distinctive — the AI will refine this into a professional summary."></textarea>
+        </div>
+      </div>
+
+      <!-- Generate button — always visible in the Generate outer tab -->
+      <div class="generate-footer">
+        <button class="btn btn-primary" id="btn-generate"
+                style="width:100%; justify-content:center;">
+          Generate CV
+        </button>
+      </div>
+    </div><!-- /outer-generate -->
+
+    <!-- ── Outer tab: Edit CV ───────────────────────────────────────────── -->
+    <div class="outer-panel" id="outer-editor">
+      <div class="editor-toolbar">
+        <button class="tool-btn" title="Bold"          data-action="bold"><b>B</b></button>
+        <button class="tool-btn" title="Italic"        data-action="italic"><i>I</i></button>
+        <div class="tool-sep"></div>
+        <button class="tool-btn" title="Heading 2"     data-action="h2">H2</button>
+        <button class="tool-btn" title="Heading 3"     data-action="h3">H3</button>
+        <div class="tool-sep"></div>
+        <button class="tool-btn" title="Bullet list"   data-action="bullet">&#8226; List</button>
+        <button class="tool-btn" title="Numbered list" data-action="number">1. List</button>
+        <div class="tool-sep"></div>
+        <button class="tool-btn" title="Undo"          data-action="undo">Undo</button>
+        <button class="tool-btn" title="Redo"          data-action="redo">Redo</button>
+        <div style="flex:1;"></div>
+        <span id="ai-sel-hint" class="ai-selection-hint"></span>
+      </div>
+
+      <textarea id="cv-editor" spellcheck="true"
+                placeholder="Your CV will appear here after generation. You can also paste or type directly."></textarea>
+
+      <div class="ai-edit-bar">
+        <input type="text" id="ai-instruction"
+               placeholder="Select text, then describe your edit...">
+        <button class="btn btn-primary" id="btn-ai-edit" style="flex-shrink:0;">AI Edit</button>
+      </div>
+    </div><!-- /outer-editor -->
+
+  </div><!-- /left-panel -->
+
+  <!-- ═══ Right panel: preview + match ════════════════════════════════════ -->
+  <div class="right-panel">
+    <div class="preview-header">
+      <span class="preview-header-title">Live Preview</span>
+      <span class="preview-header-spacer"></span>
+      <span id="preview-word-count" style="font-size:11px;color:var(--muted);"></span>
+    </div>
+
+    <div class="right-scroll">
+      <!-- CV canvas — always white regardless of theme -->
+      <div id="cv-preview">
+        <div class="preview-empty">
+          <div class="preview-empty-icon">&#9675;</div>
+          <div class="preview-empty-text">Enter your GitHub username and click Generate CV</div>
+        </div>
+      </div>
+
+      <!-- Match panel — appears directly below the canvas -->
+      <div class="match-panel" id="match-panel"></div>
+    </div>
+
+    <div class="status-bar" id="status-bar">Ready</div>
+  </div>
+
+</div><!-- /main -->
+
+<script src="/static/devfit.js"></script>
+</body>
+</html>

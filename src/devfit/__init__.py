@@ -1,5 +1,5 @@
 """
-DevFit — evidence-grounded CV and fit-report generator.
+DevFit — GitHub-profile-driven CV generator and evidence-grounded fit reporter.
 
 Public surface
 --------------
@@ -19,18 +19,14 @@ devfit.pipeline
 devfit.verifier
     Independent Verifier: rule-based layer + constrained LLM layer.
 devfit.output
-    Fit-report, CV, and evidence-appendix generators.
-devfit.checkpoint
-    Mandatory human-review checkpoint (CLI interactive).
+    CV generators, fit-report, evidence-appendix, and PDF export.
 devfit.baseline
     Deliberately simple single-prompt baseline for comparison.
 devfit.db (optional)
     SQLAlchemy models and async session factory.
     Only imported when the ``db`` extra is installed.
 devfit.api
-    FastAPI application (optional HTTP surface).
-devfit.cli
-    Click-based CLI entry points: ``devfit`` and ``devfit-dev``.
+    FastAPI application — web UI and REST API served by ``devfit-server``.
 """
 
 __version__ = "0.1.0"

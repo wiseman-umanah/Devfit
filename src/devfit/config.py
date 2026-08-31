@@ -74,7 +74,21 @@ class Settings(BaseSettings):
     )
     devfit_env: Literal["development", "production"] = "development"
     github_api_base: str = "https://api.github.com"
+
+    # ── Agent model assignments ────────────────────────────────────────────
+    # Each agent uses the model best suited to its role and rate limits.
+    # Override via env vars (e.g. GROQ_MODEL_GENERATOR=qwen/qwen3-8b-27b).
+    #
+    # generator  : openai/gpt-oss-20b   — fast draft generation (30 rpm, 8K tok/min)
+    # reviewer   : openai/gpt-oss-120b  — authoritative quality verification
+    # polisher   : qwen/qwen3-8b-27b    — final language polish pass
+    # guard      : meta-llama/llama-prompt-guard-2-86m — safety / injection filter
+    # legacy alias kept for CVGenerator compatibility
     groq_model: str = "openai/gpt-oss-120b"
+    groq_model_generator: str = "openai/gpt-oss-20b"
+    groq_model_reviewer: str = "openai/gpt-oss-120b"
+    groq_model_polisher: str = "meta-llama/llama-prompt-guard-2-22m"
+    groq_model_guard: str = "meta-llama/llama-prompt-guard-2-86m"
 
 
 @lru_cache(maxsize=1)

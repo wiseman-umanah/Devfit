@@ -104,20 +104,7 @@ Uses `open(..., "a")` in a context manager, flushes after every `log_event` call
 
 ---
 
-## Stage 8 — Human Checkpoint + CLI (2024-08-30)
-
-**Why a human checkpoint at all?**
-The pipeline can produce a CV that is technically evidence-grounded but reads poorly (awkward phrasing, wrong emphasis, missing context the human knows). The checkpoint is not a fallback for when the pipeline fails — it is a design-level constraint that the human must explicitly approve before any output file is written.
-
-**Edit flow:**
-On `(e)dit`, the system opens the draft in `$EDITOR` if set (falls back to `nano`). If no terminal is available (e.g. batch eval mode), the `HumanCheckpoint` is bypassed entirely — the eval runner calls pipeline stages directly without going through `_run_pipeline()`.
-
-**Run ID:**
-Each CLI run generates a UUID4 hex prefix as a `run_id`, creating `output/<run_id>/`. This prevents output from separate runs overwriting each other. The `run_id` appears in the trajectory log for correlation.
-
----
-
-## Stage 9 — Baseline Pipeline (2024-08-30)
+## Stage 8 — Baseline Pipeline (2024-08-30)
 
 **Why build this last?**
 If you build the baseline first, there is a temptation to "improve" it to make DevFit's relative improvement look better. Building it last, with a deliberate mandate to keep it simple, prevents benchmark gaming.
@@ -130,13 +117,91 @@ The baseline has no structured classification system. To feed `score.py`'s hallu
 
 ---
 
-## Stage 10 — Evaluation Infrastructure (2024-08-30)
+## Stage 9 — Evaluation Infrastructure (2024-08-30)
 
 **eval/run_eval.py design:**
-The runner bypasses the CLI and `HumanCheckpoint` entirely, importing pipeline stages directly. This is intentional for batch evaluation. The eval run must be non-interactive. Cases that hit rate limits or LLM errors are skipped with a logged error rather than aborting the entire run.
+The runner bypasses the CLI and human checkpoint entirely, importing pipeline stages directly. This is intentional for batch evaluation. The eval run must be non-interactive. Cases that hit rate limits or LLM errors are skipped with a logged error rather than aborting the entire run.
 
 **eval/score.py `sys.exit(2)` on non-zero unsupported CV rate:**
 A non-zero unsupported CV claim rate is treated as a hard failure (exit code 2, not 1). This distinguishes "some cases failed" (exit 1) from "the core guarantee was violated" (exit 2). CI should treat both as failures but report them differently.
+
+---
+
+## Stage 10 — Standalone CV Generator + Multi-Agent Pipeline
+
+**Motivation:** The JD-fit pipeline requires a job description to run. The standalone path produces a professional CV from a GitHub profile alone — the primary use case for the web UI.
+
+**`StandaloneCVGenerator`** (`output/standalone_cv.py`): uses `standalone_cv.txt` prompt, runs the four-agent pipeline (Generator → Guard → Reviewer → Polisher), suppresses star counts below 3, omits "no public commits" activity lines.
+
+**`CVAgentPipeline`** (`output/agents.py`): orchestrates Guard (meta-llama/llama-prompt-guard-2-86m, fast heuristic pass), Reviewer (`groq_model_reviewer`), Polisher (`groq_model_polisher`). Guard can short-circuit on clean input — avoids a full LLM call for the common case.
+
+**`CVReviewer`** (`output/cv_reviewer.py`): structured JSON verdict, 6 rules, auto-fix for Rules 1–3 (em-dashes, emojis, filler phrases). Never blocks the pipeline — worst case it logs issues to `review_log.json`.
+
+**`cv_utils.py`**: extracted shared helpers (`_extract_profile`, `_strip_em_dashes`, `_strip_emojis`, `_strip_filler`, `_wrap_source_tags`, `_post_process`) to break a circular import between `cv.py` and `standalone_cv.py`.
+
+**New prompts:** `standalone_cv.txt`, `tailored_cv.txt`, `cv_reviewer.txt`.
+
+**Config:** Four new model fields added to `Settings`: `groq_model_generator`, `groq_model_reviewer`, `groq_model_polisher`, `groq_model_guard`.
+
+---
+
+## Stage 11 — Web UI + REST API
+
+**Architecture decision — static files + Jinja2 instead of inline HTML string:**
+The original `api/ui.py` held the entire HTML/CSS/JS as a raw string. This was unreadable for CSS/JS work and caused ruff E501 noise. Migrated to:
+
+- `api/static/devfit.css` — all styles
+- `api/static/devfit.js` — all client-side logic
+- `api/templates/index.html` — Jinja2 template, receives `{{ username }}` context variable
+
+The old `api/ui.py` was deleted.
+
+**URL routing — `GET /{username}`:**
+`app.py` registers a `GET /{username}` route that pre-fills the GitHub username field in the template. Navigating to `http://localhost:8000/torvalds` immediately loads the UI ready to generate for that user. After generation the client calls `history.pushState` to update the URL without a page reload.
+
+**Reference CV — file upload instead of textarea:**
+Replaced the paste-text area with a drag-and-drop file upload zone. The file is read in-browser via `FileReader.readAsText()`. The text is held in a `let refCvText` variable and sent only as part of the `POST /api/v1/generate` body — it never touches the server filesystem.
+
+**Left panel tab structure:**
+- **Outer tabs:** Generate | Edit CV
+- **Generate inner sub-tabs:** GitHub | Job Description | Other Details
+- **Other Details** collects: full name, email, phone, LinkedIn, portfolio/website, location, additional skills, bio hint. These are serialised into the `reference_cv` field alongside any uploaded file — no API schema change.
+
+**Match panel:** Moved from the left panel (hidden below the form) to the right panel, directly below the CV canvas. It is always visible after a match run. Uses a two-column grid (matched left, gaps right).
+
+**Dark mode:** Full dark theme via `[data-theme="dark"]` CSS custom properties, toggled by a button in the top bar. The CV canvas (`#cv-preview`) is hardcoded white in both themes — a CV must always look like a printed document.
+
+**Highlight persistence for AI edit:** `selectionStart`/`selectionEnd` are captured on every `mouseup`, `keyup`, and `select` event. When the AI Edit button is clicked, the selection is restored with `focus()` + `setSelectionRange()` before the async fetch, so the highlighted text stays visible while the model is working.
+
+**Toolbar bullet/numbered list fix:** When no text is selected, the `• List` and `1. List` buttons now detect the current cursor line and prepend the prefix to it, rather than inserting an invisible empty prefix. On a blank line they insert `- ` or `1. ` and place the cursor after it.
+
+**REST API routers added:**
+
+| Route | Purpose |
+|---|---|
+| `POST /api/v1/generate` | GitHub username → CV Markdown (standalone path) |
+| `POST /api/v1/edit` | AI-rewrite a highlighted section |
+| `POST /api/v1/match` | CV + JD → score, matched skills, gaps |
+| `POST /api/v1/export-pdf` | CV Markdown → PDF binary stream |
+| `POST /api/v1/analyze` | Full JD-fit pipeline (no human checkpoint) |
+
+**`/api/v1/analyze` response** adds `improvements`, `verified_count`, `contradicted_count`, `unverifiable_count` fields beyond the original stub's contract.
+
+**16 tests** added in `tests/api/test_analyze.py` covering happy path, resume text, error paths (503, 500), and validation (422).
+
+---
+
+## Project Cleanup
+
+**Removed `cli.py`:** The CLI (`devfit`, `devfit-fit`, `devfit-dev` commands) was the original interface. With the web UI and REST API complete, the CLI is redundant. All functionality is accessible via `devfit-server` + browser or `curl`.
+
+**Removed `checkpoint/`:** `HumanCheckpoint` was only imported by `cli.py`. It has no role in the web flow — the browser is the human interface.
+
+**Removed `api/ui.py`:** Replaced by `api/static/` + `api/templates/`. The inline-string approach was a temporary measure.
+
+**`pyproject.toml` scripts:** Reduced from four entries to one — `devfit-server = "devfit.api.app:main"`.
+
+**`src/devfit/__init__.py` docstring:** Updated to reflect the current architecture (no CLI, no checkpoint, API-first).
 
 ---
 
@@ -146,3 +211,4 @@ A non-zero unsupported CV claim rate is treated as a hard failure (exit code 2, 
 - **GitHub API rate limits:** Unauthenticated requests are limited to 60/hour. A `GITHUB_TOKEN` in `.env` raises this to 5,000/hour. The eval run requires a token.
 - **LLM non-determinism at `temperature=0.0`:** Groq's API is not guaranteed to produce identical outputs for identical inputs at `temperature=0.0`. In practice, eval results are highly stable, but not byte-for-byte reproducible across different days or API versions.
 - **case_07 username dependency:** `wiseman-umanah` is a real 2024 account selected specifically because it has no Python activity and was created in 2023–2024. If this account is deleted or substantially updated, case_07's ground-truth labels may need revisiting.
+- **PDF export requires pandoc + Chrome:** `export_cv_to_pdf` looks for pandoc at `/home/linuxbrew/.linuxbrew/bin/pandoc` and Chrome at `/usr/bin/google-chrome`. Both silently skip if unavailable; the UI shows a `503` with a clear message.
