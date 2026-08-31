@@ -177,6 +177,7 @@ async def _run_pipeline(
         FitReportGenerator,
         ImprovementGenerator,
         TrajectoryLogger,
+        export_cv_to_pdf,
     )
     from devfit.pipeline import (
         EvidenceMatcher,
@@ -312,18 +313,24 @@ async def _run_pipeline(
         (run_dir / "evidence_appendix.md").write_text(appendix_md, encoding="utf-8")
         (run_dir / "improvements.md").write_text(improvements_md, encoding="utf-8")
 
+        # ── PDF export ────────────────────────────────────────────────────────
+        pdf_ok = export_cv_to_pdf(run_dir / "cv.md", run_dir / "cv.pdf")
+        if pdf_ok:
+            logger.info("CV PDF written: %s/cv.pdf", run_dir)
+        else:
+            logger.info(
+                "PDF export skipped (pandoc or Chrome not available). "
+                "cv.md is available as fallback."
+            )
+
+        output_files = ["fit_report.md", "cv.md", "evidence_appendix.md",
+                        "improvements.md", "trajectory_log.jsonl"]
+        if pdf_ok:
+            output_files.insert(2, "cv.pdf")
+
         tlog.log_event(
             "output_written",
-            {
-                "run_dir": str(run_dir),
-                "files": [
-                    "fit_report.md",
-                    "cv.md",
-                    "evidence_appendix.md",
-                    "improvements.md",
-                    "trajectory_log.jsonl",
-                ],
-            },
+            {"run_dir": str(run_dir), "files": output_files},
         )
 
     logger.info("Done. Output written to: %s", run_dir)

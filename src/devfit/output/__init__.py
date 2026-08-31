@@ -28,6 +28,7 @@ Public API
 from devfit.output.appendix import EvidenceAppendix
 from devfit.output.cv import CVGenerator, CVLine
 from devfit.output.improvements import ImprovementGenerator
+from devfit.output.pdf import export_cv_to_pdf
 from devfit.output.report import FitReportGenerator, FitScore
 from devfit.output.trajectory import TrajectoryLogger
 
@@ -39,4 +40,5 @@ __all__ = [
     "ImprovementGenerator",
     "EvidenceAppendix",
     "TrajectoryLogger",
+    "export_cv_to_pdf",
 ]
